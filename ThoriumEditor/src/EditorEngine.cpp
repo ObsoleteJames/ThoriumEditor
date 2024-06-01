@@ -288,6 +288,8 @@ int CEditorEngine::Run()
 
 		gameWindow->Present(userConfig.bVSync, 0);
 
+		UpdateTitle();
+
 		dtTimer.Stop();
 		deltaTime = dtTimer.GetSeconds();
 
@@ -484,6 +486,24 @@ void CEditorEngine::InitEditorData()
 	gridMat = CreateObject<CMaterial>();
 	gridMat->SetShader("Tools");
 	gridMat->SetInt("vType", 1);
+}
+
+void CEditorEngine::UpdateTitle()
+{
+	static FString title;
+	title = "Thorium Editor - ";
+
+	if (bProjectLoaded)
+		title += projectConfig.displayName;
+	else
+		title += "No project loaded";
+
+	if (gWorld->scene && gWorld->scene->File())
+		title += " - " + gWorld->scene->File()->Path();
+	else
+		title += " - New scene";
+
+	gameWindow->SetWindowTitle(title);
 }
 
 void CEditorEngine::GenerateGrid(float gridSize, float quadSize, FMesh* outMesh)

@@ -145,6 +145,8 @@ private:
 	void SetupMenu();
 	void SetupEditorDocking();
 
+	void UpdateTitle();
+
 	void GenerateGrid(float gridSize, float quadSize, FMesh* out);
 
 	void NewScene();

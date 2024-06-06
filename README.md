@@ -5,7 +5,7 @@ currently only windows is supported
 # Building
 Requirements
 - [Thorium Engine source](https://github.com/ObsoleteJames/ThoriumEngine)
-- CMake 3.20.0 or greate
+- CMake 3.20.0 or greater
 - MSVC 15 (Visual Studio 2017) or greater for windows
 
 ### Windows

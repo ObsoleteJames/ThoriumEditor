@@ -653,18 +653,21 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 {
 	FString type = ent->GetClass()->GetName();
 
-	if (bRoot && CastChecked<CEntity>(ent->GetOwner()))
+	if (bRoot && ent->RootComponent()->GetParent() != nullptr)
 		return;
 
 	ImGui::TableNextRow();
 	ImGui::TableNextColumn();
 
-	const auto& children = ent->GetChildren();
+	//const auto& children = ent->GetChildren();
 	static TArray<CEntity*> childEnts;
 	childEnts.Clear();
-	for (auto& c : children)
-		if (auto cEnt = CastChecked<CEntity>(c); cEnt)
-			childEnts.Add(cEnt);
+	for (auto& c : ent->RootComponent()->GetChildren())
+		if (c->GetEntity() != ent)
+			childEnts.Add(c->GetEntity());
+	//for (auto& c : children)
+	//	if (auto cEnt = CastChecked<CEntity>(c); cEnt)
+	//		childEnts.Add(cEnt);
 
 	int numChildren = (int)childEnts.Size();
 
@@ -699,33 +702,53 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 
 	ImVec2 cursor = ImGui::GetCursorScreenPos();
 
+	ITexture2D* entIcon = ThoriumEditor::GetThemeIcon("entities/" + ent->GetClass()->GetInternalName()); 
+	if (!entIcon)
+		entIcon = ThoriumEditor::GetThemeIcon("entities/CEntity");
+
+	if (ent->type == ENTITY_DYNAMIC)
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.71f, 0.81f, 1.f, 1.f));
+
 	if (numChildren > 0)
 	{
 		ImGui::SetNextItemWidth(10);
-		ImGui::SetCursorScreenPos(cursor - ImVec2(14, 0));
+		ImGui::SetCursorScreenPos(cursor - ImVec2(8, 0));
 		bool bOpen = ImGui::TreeNodeEx(("##_tree_" + ent->Name()).c_str(), /*ImGuiTreeNodeFlags_SpanAllColumns |*/ ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen);
 		ImGui::SameLine();
 
-		ImGui::SetCursorScreenPos(cursor + ImVec2(6, 0));
+		ImGui::SetCursorScreenPos(cursor - ImVec2(-12, 3));
+		ImGui::Image(TEX_VIEW(entIcon), ImVec2(20, 20));
+
+		ImGui::SetCursorScreenPos(cursor + ImVec2(36, 0));
 		ImGui::Text(ent->Name().c_str());
+
+		if (ent->type == ENTITY_DYNAMIC)
+			ImGui::PopStyleColor();
+
 		ImGui::TableNextColumn();
 		ImGui::Text(type.c_str());
 
 		if (bOpen)
 		{
-			for (auto& child : ent->GetChildren())
+			for (auto& child : childEnts)
 			{
-				auto childEnt = CastChecked<CEntity>(child);
-				if (childEnt.IsValid())
-					OutlinerDrawEntity(childEnt, false);
+				if (child)
+					OutlinerDrawEntity(child, false);
 			}
 			ImGui::TreePop();
 		}
 	}
 	else
 	{
-		ImGui::SetCursorScreenPos(cursor + ImVec2(6, 0));
+		ImGui::SetCursorScreenPos(cursor - ImVec2(-12, 3));
+		ImGui::Image(TEX_VIEW(entIcon), ImVec2(20, 20));
+
+		ImGui::SetCursorScreenPos(cursor + ImVec2(36, 0));
 		ImGui::Text(ent->Name().c_str());
+
+		if (ent->type == ENTITY_DYNAMIC)
+			ImGui::PopStyleColor();
+
 		ImGui::TableNextColumn();
 		ImGui::Text(type.c_str());
 	}

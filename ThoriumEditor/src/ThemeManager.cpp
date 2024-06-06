@@ -157,19 +157,24 @@ static void LoadTheme(FFile* file)
 	theme.tabRounding = std::stof(kv.GetValue("tab_rounding")->Value.c_str());
 }
 
-static void LoadThemeIcons(const FString& themePath)
+static void LoadThemeIconsEx(FDirectory* root, FDirectory* dir)
 {
-	FDirectory* iconsDir = CFileSystem::FindDirectory(themePath + "/icons");
-	if (!iconsDir)
-		return;
+	for (auto* folder : dir->GetSubDirectories())
+	{
+		if (folder->GetName() != "assets")
+			LoadThemeIconsEx(root, folder);
+	}
 
-	for (auto* file : iconsDir->GetFiles())
+	for (auto* file : dir->GetFiles())
 	{
 		bool bPng = file->Extension() == ".png";
 		if (file->Extension() != ".thtex" && !bPng)
 			continue;
 
-		SizeType hash = file->Name().Hash();
+		FString filePath = file->Dir()->GetPath() + "/" + file->Name();
+		filePath.Erase(filePath.begin(), filePath.begin() + root->GetPath().Size() + 1);
+
+		SizeType hash = filePath.Hash();
 		if (themeIcons.find(hash) != themeIcons.end())
 			continue;
 
@@ -182,6 +187,35 @@ static void LoadThemeIcons(const FString& themePath)
 		if (tex)
 			themeIcons[hash] = tex;
 	}
+}
+
+static void LoadThemeIcons(const FString& themePath)
+{
+	FDirectory* iconsDir = CFileSystem::FindDirectory(themePath + "/icons");
+	if (!iconsDir)
+		return;
+
+	LoadThemeIconsEx(iconsDir, iconsDir);
+
+	//for (auto* file : iconsDir->GetFiles())
+	//{
+	//	bool bPng = file->Extension() == ".png";
+	//	if (file->Extension() != ".thtex" && !bPng)
+	//		continue;
+
+	//	SizeType hash = file->Name().Hash();
+	//	if (themeIcons.find(hash) != themeIcons.end())
+	//		continue;
+
+	//	TObjectPtr<CTexture> tex;
+	//	if (bPng)
+	//		tex = CTexture::CreateFromImage(ToFString(file->FullPath()));
+	//	else
+	//		tex = CResourceManager::GetResource<CTexture>(file->Path());
+
+	//	if (tex)
+	//		themeIcons[hash] = tex;
+	//}
 
 	FDirectory* assetsDir = CFileSystem::FindDirectory(themePath + "/icons/assets");
 	if (!assetsDir)

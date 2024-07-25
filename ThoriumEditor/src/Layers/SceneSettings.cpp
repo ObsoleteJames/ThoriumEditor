@@ -1,7 +1,7 @@
 
 #include "Layer.h"
 #include "EditorEngine.h"
-#include "Resources/Scene.h"
+#include "Assets/Scene.h"
 #include "Game/World.h"
 
 #define IMGUI_DEFINE_MATH_OPERATORS

@@ -17,7 +17,7 @@ public:
 
 	static void DoCreate(const FString& path, const FString& mod)
 	{
-		TObjectPtr<CShaderSource> shader = CResourceManager::CreateResource<CShaderSource>(path, mod);
+		TObjectPtr<CShaderSource> shader = CAssetManager::CreateAsset<CShaderSource>(path, mod);
 
 		FString shaderName = ToFString(path);
 		if (auto i = shaderName.FindLastOf("\\/"); i != -1)

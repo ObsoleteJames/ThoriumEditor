@@ -17,7 +17,7 @@ public:
 	{
 		if (ImGui::MenuItem("Compile"))
 		{
-			auto shader = CResourceManager::GetResource<CShaderSource>(data->file->Path());
+			auto shader = CAssetManager::GetAsset<CShaderSource>(data->file->Path());
 			shader->Compile();
 		}
 	}

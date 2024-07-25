@@ -2,9 +2,9 @@
 #include <string>
 #include "EditorEngine.h"
 #include "MaterialEditor.h"
-#include "Resources/ResourceManager.h"
-#include "Resources/ModelAsset.h"
-#include "Resources/Material.h"
+#include "Assets/AssetManager.h"
+#include "Assets/ModelAsset.h"
+#include "Assets/Material.h"
 #include "Game/World.h"
 #include "Game/Entities/ModelEntity.h"
 #include "Game/Components/PointLightComponent.h"
@@ -37,13 +37,13 @@ public:
 	void Invoke(FBrowserActionData* data) override
 	{
 		auto* editor = gEditorEngine()->AddLayer<CMaterialEditor>();
-		editor->SetMaterial(CResourceManager::GetResource<CMaterial>(data->file->Path()));
+		editor->SetMaterial(CAssetManager::GetAsset<CMaterial>(data->file->Path()));
 	}
 } static FMaterialOpenAction_instance;
 
 CMaterialEditor::CMaterialEditor()
 {
-	previewModel = CResourceManager::GetResource<CModelAsset>("models/Sphere.thmdl");
+	previewModel = CAssetManager::GetAsset<CModelAsset>("models/Sphere.thasset");
 
 	scene = CreateObject<CWorld>();
 	scene->InitWorld(CWorld::InitializeInfo().CreateRenderScene(true).RegisterForRendering(true));
@@ -120,13 +120,13 @@ void CMaterialEditor::OnUIRender()
 	FString m;
 	if (ThoriumEditor::AcceptFile(openMatId, &f) && !f.IsEmpty())
 	{
-		CMaterial* m = CResourceManager::GetResource<CMaterial>(f);
+		CMaterial* m = CAssetManager::GetAsset<CMaterial>(f);
 		if (m)
 			SetMaterial(m);
 	}
 	if (ThoriumEditor::AcceptFile(saveMatId, &f, &m) && !f.IsEmpty())
 	{
-		CResourceManager::RegisterNewResource(mat, f, m);
+		CAssetManager::RegisterNewAsset(mat, f, m);
 		mat->Save();
 		bSaved = true;
 	}

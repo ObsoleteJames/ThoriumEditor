@@ -1,8 +1,8 @@
 
 #include <string>
 #include "ThemeManager.h"
-#include "Resources/Asset.h"
-#include "Resources/TextureAsset.h"
+#include "Assets/Asset.h"
+#include "Assets/TextureAsset.h"
 #include "Math/Math.h"
 #include <Util/KeyValue.h>
 
@@ -182,7 +182,7 @@ static void LoadThemeIconsEx(FDirectory* root, FDirectory* dir)
 		if (bPng)
 			tex = CTexture::CreateFromImage(ToFString(file->FullPath()));
 		else
-			tex = CResourceManager::GetResource<CTexture>(file->Path());
+			tex = CAssetManager::GetAsset<CTexture>(file->Path());
 
 		if (tex)
 			themeIcons[hash] = tex;
@@ -235,7 +235,7 @@ static void LoadThemeIcons(const FString& themePath)
 		if (bPng)
 			tex = CTexture::CreateFromImage(ToFString(file->FullPath()));
 		else
-			tex = CResourceManager::GetResource<CTexture>(file->Path());
+			tex = CAssetManager::GetAsset<CTexture>(file->Path());
 
 		if (tex)
 			resourceIcons[hash] = tex;
@@ -271,7 +271,10 @@ ITexture2D* ThoriumEditor::GetResourceIcon(FClass* type)
 	if (it == resourceIcons.end())
 		return nullptr;
 
-	it->second->Load(0);
+	// only try to load if it isn't a png.
+	if (it->second->File())
+		it->second->Load(0);
+
 	return (ITexture2D*)it->second->GetTextureObject();
 }
 
@@ -281,7 +284,10 @@ ITexture2D* ThoriumEditor::GetThemeIcon(const FString& iconName)
 	if (it == themeIcons.end())
 		return nullptr;
 
-	it->second->Load(0);
+	// only try to load if it isn't a png.
+	if (it->second->File())
+		it->second->Load(0);
+
 	return (ITexture2D*)it->second->GetTextureObject();
 }
 

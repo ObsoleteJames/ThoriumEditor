@@ -1,8 +1,8 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "EditorWidgets.h"
-#include "Resources/Asset.h"
-#include "Resources/ResourceManager.h"
+#include "Assets/Asset.h"
+#include "Assets/AssetManager.h"
 #include "ThemeManager.h"
 #include "Platform/Windows/DirectX/DirectXTexture.h"
 
@@ -67,7 +67,7 @@ bool ImGui::ObjectPtrWidget(const char* label, TObjectPtr<CObject>** values, int
 
 bool ImGui::AssetPtrWidget(const char* label, TObjectPtr<CAsset>** values, int numValues, FAssetClass* filterClass)
 {
-	auto& resources = CResourceManager::GetAvailableResources();
+	auto& resources = CAssetManager::GetAssetsData();
 	bool bEqual = true;
 
 	for (int i = 1; i < numValues; i++)
@@ -119,7 +119,7 @@ bool ImGui::AssetPtrWidget(const char* label, TObjectPtr<CAsset>** values, int n
 			bool bSelected = bEqual ? (bNull ? false : (*values[0])->File() == obj.second.file) : false;
 			if (ImGui::Selectable(obj.second.file->Name().c_str(), bSelected))
 			{
-				TObjectPtr<CAsset> resource = CResourceManager::GetResource(filterClass, obj.first);
+				TObjectPtr<CAsset> resource = CAssetManager::GetAsset(filterClass, obj.first);
 				for (int i = 0; i < numValues; i++)
 				{
 					*values[i] = resource;
@@ -139,10 +139,10 @@ bool ImGui::AssetPtrWidget(const char* label, TObjectPtr<CAsset>** values, int n
 		if (content)
 		{
 			FFile* file = *(FFile**)content->Data;
-			FAssetClass* type = CResourceManager::GetResourceTypeByFile(file);
+			FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 			if (type->CanCast(filterClass))
 			{
-				TObjectPtr<CAsset> resource = CResourceManager::GetResource(filterClass, file->Path());
+				TObjectPtr<CAsset> resource = CAssetManager::GetAsset(filterClass, file->Path());
 				for (int i = 0; i < numValues; i++)
 				{
 					*values[i] = resource;

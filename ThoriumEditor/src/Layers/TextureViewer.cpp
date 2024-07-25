@@ -1,9 +1,9 @@
 
 #include "TextureViewer.h"
 #include "EditorEngine.h"
-#include "Resources/ResourceManager.h"
-#include "Resources/ModelAsset.h"
-#include "Resources/Material.h"
+#include "Assets/AssetManager.h"
+#include "Assets/ModelAsset.h"
+#include "Assets/Material.h"
 #include "Game/World.h"
 #include "Game/Entities/ModelEntity.h"
 #include "Game/Components/PointLightComponent.h"
@@ -35,7 +35,7 @@ public:
 	void Invoke(FBrowserActionData* data) override
 	{
 		auto* editor = gEditorEngine()->AddLayer<CTextureViewer>();
-		editor->SetTexture(CResourceManager::GetResource<CTexture>(data->file->Path()));
+		editor->SetTexture(CAssetManager::GetAsset<CTexture>(data->file->Path()));
 	}
 } static FTextureOpenAction_instance;
 

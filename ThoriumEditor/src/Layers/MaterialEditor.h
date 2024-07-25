@@ -3,7 +3,7 @@
 #include "Layer.h"
 #include "EngineCore.h"
 #include "Object/Object.h"
-#include "Resources/Material.h"
+#include "Assets/Material.h"
 #include <map>
 
 class CWorld;

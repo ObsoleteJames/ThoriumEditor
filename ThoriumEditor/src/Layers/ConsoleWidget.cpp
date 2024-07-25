@@ -60,6 +60,12 @@ void CConsoleWidget::OnUIRender()
 				if (msg.type != CONSOLE_PLAIN)
 					ImGui::TextColored(ImVec4(0.435f, 0.7f, 0.294f, 1.f), ("[" + msgTime + "] " + msg.module).c_str());
 
+				if (msg.repeats > 1)
+				{
+					ImGui::SameLine();
+					ImGui::TextColored(ImVec4(1, 1, 1, 0.4f), "x%d", msg.repeats);
+				}
+
 				ImGui::SameLine();
 
 				if (msg.type == CONSOLE_PLAIN)

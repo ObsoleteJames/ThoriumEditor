@@ -19,8 +19,8 @@
 #include "Game/Components/CameraComponent.h"
 #include "Game/Components/ModelComponent.h"
 #include "Game/Entities/ModelEntity.h"
-#include "Resources/Material.h"
-#include "Resources/Scene.h"
+#include "Assets/Material.h"
+#include "Assets/Scene.h"
 #include "FileDialogs.h"
 #include "Misc/Timer.h"
 #include <Util/KeyValue.h>
@@ -184,7 +184,7 @@ int CEditorEngine::Run()
 		if (inputManager)
 			inputManager->BuildInput();
 
-		CResourceManager::Update();
+		CAssetManager::Update();
 		CObjectManager::Update();
 
 		gRenderer->ImGuiBeginFrame();
@@ -322,7 +322,7 @@ void CEditorEngine::OnExit()
 
 	CWindow::Shutdown();
 
-	CResourceManager::Shutdown();
+	CAssetManager::Shutdown();
 	CModuleManager::Cleanup();
 
 	SaveConsoleLog();
@@ -1028,7 +1028,7 @@ void CEditorEngine::SceneFileDialogs()
 	FString m;
 	if (ThoriumEditor::AcceptFile("saveEditorScene", &f, &m) && !f.IsEmpty())
 	{
-		CResourceManager::RegisterNewResource(gWorld->GetScene(), f, m);
+		CAssetManager::RegisterNewAsset(gWorld->GetScene(), f, m);
 		gWorld->Save();
 	}
 	if (ThoriumEditor::AcceptFile("openEditorScene", &f, &m) && !f.IsEmpty())

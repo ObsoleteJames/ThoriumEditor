@@ -19,8 +19,8 @@
 #include "Game/Components/CameraComponent.h"
 #include "Game/Components/ModelComponent.h"
 #include "Game/Entities/ModelEntity.h"
-#include "Resources/Material.h"
-#include "Resources/Scene.h"
+#include "Assets/Material.h"
+#include "Assets/Scene.h"
 #include "FileDialogs.h"
 #include "Misc/Timer.h"
 #include <Util/KeyValue.h>
@@ -241,29 +241,29 @@ void CEditorEngine::UpdateEditor()
 			if (content)
 			{
 				FFile* file = *(FFile**)content->Data;
-				FAssetClass* type = CResourceManager::GetResourceTypeByFile(file);
+				FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 				if (type == (FAssetClass*)CScene::StaticClass())
 				{
 					LoadWorld(file->Path());
 				}
 				if (type == (FAssetClass*)CMaterial::StaticClass())
 				{
-					CMaterial* mat = CResourceManager::GetResource<CMaterial>(file->Path());
+					CMaterial* mat = CAssetManager::GetAsset<CMaterial>(file->Path());
 					DoMaterialDrop(mat, false);
 				}
 				if (type == (FAssetClass*)CModelAsset::StaticClass())
 				{
-					CModelAsset* mdl = CResourceManager::GetResource<CModelAsset>(file->Path());
+					CModelAsset* mdl = CAssetManager::GetAsset<CModelAsset>(file->Path());
 					DoModelAssetDrop(mdl, false);
 				}
 			}
 			if (peek)
 			{
 				FFile* file = *(FFile**)peek->Data;
-				FAssetClass* type = CResourceManager::GetResourceTypeByFile(file);
+				FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 				if (type == (FAssetClass*)CMaterial::StaticClass())
 				{
-					CMaterial* mat = CResourceManager::GetResource<CMaterial>(file->Path());
+					CMaterial* mat = CAssetManager::GetAsset<CMaterial>(file->Path());
 					DoMaterialDrop(mat, true);
 				}
 			}
@@ -464,8 +464,8 @@ void CEditorEngine::UpdateEditor()
 			// Resources
 			ImGui::Separator();
 
-			ImGui::Text("Resource Count: %d", CResourceManager::ResourcesCount());
-			ImGui::Text("Streaming Resources: %d", CResourceManager::StreamingResourcesCount());
+			ImGui::Text("Asset Count: %d", CAssetManager::AssetsCount());
+			ImGui::Text("Streaming Assets: %d", CAssetManager::StreamingAssetsCount());
 		}
 		ImGui::End();
 	}

@@ -3,7 +3,7 @@
 #include "Layer.h"
 #include "EngineCore.h"
 #include "Object/Object.h"
-#include "Resources/ModelAsset.h"
+#include "Assets/ModelAsset.h"
 
 #include "assimp/Importer.hpp"
 

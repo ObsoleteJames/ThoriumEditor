@@ -4,8 +4,8 @@
 
 #include "Game/GameInstance.h"
 #include "Game/Input/InputManager.h"
-#include "Resources/ResourceManager.h"
-#include "Resources/Scene.h"
+#include "Assets/AssetManager.h"
+#include "Assets/Scene.h"
 
 #include "Engine.h"
 
@@ -109,7 +109,7 @@ void CProjectSettingsWidget::RenderGameSettings()
 		TObjectPtr<CTexture> icon;
 		if (!gEditorEngine()->GetProjectConfig().iconPath.IsEmpty())
 		{
-			icon = CResourceManager::GetResource<CTexture>(gEditorEngine()->GetProjectConfig().iconPath);
+			icon = CAssetManager::GetAsset<CTexture>(gEditorEngine()->GetProjectConfig().iconPath);
 			if (!icon)
 				gEditorEngine()->GetProjectConfig().iconPath.Clear();
 		}
@@ -153,7 +153,7 @@ void CProjectSettingsWidget::RenderGameSettings()
 		TObjectPtr<CScene> scene;
 		if (!gEditorEngine()->ActiveGame().startupScene.IsEmpty())
 		{
-			scene = CResourceManager::GetResource<CScene>(ToFString(gEditorEngine()->ActiveGame().startupScene));
+			scene = CAssetManager::GetAsset<CScene>(ToFString(gEditorEngine()->ActiveGame().startupScene));
 			if (!scene)
 				gEditorEngine()->ActiveGame().startupScene = FString();
 		}

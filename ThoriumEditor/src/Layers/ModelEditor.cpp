@@ -42,7 +42,7 @@ public:
 	void Invoke(FBrowserActionData* data) override
 	{
 		auto* editor = gEditorEngine()->AddLayer<CModelEditor>();
-		editor->SetModel(CResourceManager::GetResource<CModelAsset>(data->file->Path()));
+		editor->SetModel(CAssetManager::GetAsset<CModelAsset>(data->file->Path()));
 	}
 } static FModelOpenAction_instance;
 
@@ -174,13 +174,13 @@ void CModelEditor::OnUIRender()
 
 	if (ThoriumEditor::AcceptFile(openMdlId, &f) && !f.IsEmpty())
 	{
-		CModelAsset* m = CResourceManager::GetResource<CModelAsset>(f);
+		CModelAsset* m = CAssetManager::GetAsset<CModelAsset>(f);
 		if (m)
 			SetModel(m);
 	}
 	if (ThoriumEditor::AcceptFile(saveMdlId, &f, &m) && !f.IsEmpty())
 	{
-		CResourceManager::RegisterNewResource(mdl, f, m);
+		CAssetManager::RegisterNewAsset(mdl, f, m);
 		SaveMdl();
 	}
 
@@ -268,10 +268,10 @@ void CModelEditor::OnUIRender()
 				if (auto* p = ImGui::AcceptDragDropPayload("THORIUM_ASSET_FILE"); p != nullptr)
 				{
 					FFile* file = *(FFile**)p->Data;
-					FAssetClass* type = CResourceManager::GetResourceTypeByFile(file);
+					FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 					if (type == (FAssetClass*)CModelAsset::StaticClass())
 					{
-						SetModel(CResourceManager::GetResource<CModelAsset>(file->Path()));
+						SetModel(CAssetManager::GetAsset<CModelAsset>(file->Path()));
 					}
 				}
 				ImGui::EndDragDropTarget();

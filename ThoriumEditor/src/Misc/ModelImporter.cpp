@@ -1,8 +1,8 @@
 
 #include "EditorEngine.h"
 #include "AssetBrowserWidget.h"
-#include "Resources/ModelAsset.h"
-#include "Resources/Animation.h"
+#include "Assets/ModelAsset.h"
+#include "Assets/Animation.h"
 #include "Layers/ModelEditor.h"
 #include "Layer.h"
 
@@ -238,7 +238,7 @@ public:
 			if (ImGui::Button("Import"))
 			{
 				TObjectPtr<CModelAsset> mdl = CreateObject<CModelAsset>();
-				THORIUM_ASSERT(CResourceManager::RegisterNewResource(mdl, data.outPath, data.outMod), "Failed to register CModelAsset!");
+				THORIUM_ASSERT(CAssetManager::RegisterNewAsset(mdl, data.outPath, data.outMod), "Failed to register CModelAsset!");
 
 				FMeshFile mesh;
 				mesh.file = data.sourceFile;

@@ -3,7 +3,7 @@
 #include "Layer.h"
 #include "EngineCore.h"
 #include "Object/Object.h"
-#include "Resources/TextureAsset.h"
+#include "Assets/TextureAsset.h"
 
 class CMaterial;
 class CModelEntity;

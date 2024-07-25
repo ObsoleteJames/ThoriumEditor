@@ -3,8 +3,8 @@
 #include "AssetBrowserWidget.h"
 #include "Registry/FileSystem.h"
 #include "Math/Math.h"
-#include "Resources/ResourceManager.h"
-#include "Resources/Asset.h"
+#include "Assets/AssetManager.h"
+#include "Assets/Asset.h"
 #include "Rendering/Shader.h"
 #include "Platform/Windows/DirectX/DirectXTexture.h"
 
@@ -258,7 +258,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 			for (auto& f : curDir->GetFiles())
 			{
-				FAssetClass* type = CResourceManager::GetResourceTypeByFile(f);
+				FAssetClass* type = CAssetManager::GetAssetTypeByFile(f);
 
 				if (viewFilter && viewFilter != type)
 					continue;
@@ -345,7 +345,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 				TObjectPtr<CAsset> rsc = nullptr;
 				if (type == CTexture::StaticClass())
-					rsc = CResourceManager::GetResource(type, f->Path());
+					rsc = CAssetManager::GetAsset(type, f->Path());
 
 				auto* img = rsc.IsValid() ? ThoriumEditor::GetResourceIcon(rsc) : (type ? ThoriumEditor::GetResourceIcon(type) : nullptr);
 

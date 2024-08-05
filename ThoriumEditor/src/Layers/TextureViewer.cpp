@@ -165,47 +165,49 @@ void CTextureViewer::OnUIRender()
 
 			ImGui::Text("Display Size: " + FString::ToString(int(tex->GetWidth() * scale)) + "x" + FString::ToString(int(tex->GetHeight() * scale)));
 
-			bool bEditable = !texSourceFile.IsEmpty();
+			//bool bEditable = !texSourceFile.IsEmpty();
 
-			if (!bEditable)
+			/*if (!bEditable)
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.4f));
 				ImGui::Text("No source file");
 				ImGui::PopStyleColor();
 			}
 			else
-			{
-				ImGui::TextWrapped(texSourceFile.c_str());
+			{*/
+				//ImGui::TextWrapped(texSourceFile.c_str());
+				ImGui::InputText("File", &texSourceFile);
+				ImGui::SameLine();
+				if (ImGui::Button("Browse"))
+				{
+					auto r = CEngine::OpenFileDialog();
+					if (!r.IsEmpty())
+						texSourceFile = r;
+				}
 
 				if (ImGui::Button("Reimport"))
 					UpdateTex();
-			}
+			//}
 
 			if (ImGui::BeginCombo("Format", formatNames[reimportSettings.format]))
 			{
-				if (bEditable)
-				{
-					for (int i = 0; i < 8; i++)
-						if (ImGui::Selectable(formatNames[i], reimportSettings.format == i))
-							reimportSettings.format = (ETextureAssetFormat)i;
-				}
+				for (int i = 0; i < 8; i++)
+					if (ImGui::Selectable(formatNames[i], reimportSettings.format == i))
+						reimportSettings.format = (ETextureAssetFormat)i;
 
 				ImGui::EndCombo();
 			}
 
 			if (ImGui::BeginCombo("Filter Mode", filterNames[reimportSettings.filter]))
 			{
-				if (bEditable)
-				{
-					for (int i = 0; i < 3; i++)
-						if (ImGui::Selectable(filterNames[i], reimportSettings.filter == i))
-							reimportSettings.filter = (ETextureFilter)i;
-				}
+				for (int i = 0; i < 3; i++)
+					if (ImGui::Selectable(filterNames[i], reimportSettings.filter == i))
+						reimportSettings.filter = (ETextureFilter)i;
 
 				ImGui::EndCombo();
 			}
 
-			ImGui::DragInt("MipMaps", (int*)&reimportSettings.numMipMaps, 0.25f, 1, 12, "%d", bEditable ? 0 : ImGuiSliderFlags_ReadOnly);
+			ImGui::DragInt("MipMaps", (int*)&reimportSettings.numMipMaps, 0.25f, 1, 12, "%d", 0);
 		}
 		ImGui::EndChild();
 

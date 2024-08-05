@@ -56,7 +56,7 @@ CModelEditor::CModelEditor()
 
 	modelEnt = scene->CreateEntity<CModelEntity>();
 
-	framebuffer = gRenderer->CreateFrameBuffer(1280, 720, TEXTURE_FORMAT_RGBA8_UNORM);
+	framebuffer = gGHI->CreateFrameBuffer(1280, 720, TEXTURE_FORMAT_RGBA8_UNORM);
 	scene->GetRenderScene()->SetFrameBuffer(framebuffer);
 
 	camera = new CCameraProxy();
@@ -1548,10 +1548,10 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 					SizeType capacity;
 				};
 				ImSorry vertexData{ mdl->meshes[i].vertexData, mdl->meshes[i].numVertexData, mdl->meshes[i].numVertexData };
-				mdl->meshes[i].vertexBuffer = gRenderer->CreateVertexBuffer(*(TArray<FVertex>*)&vertexData);
+				mdl->meshes[i].vertexBuffer = gGHI->CreateVertexBuffer(*(TArray<FVertex>*)&vertexData);
 
 				ImSorry indexData{ mdl->meshes[i].indexData, mdl->meshes[i].numIndexData, mdl->meshes[i].numIndexData };
-				mdl->meshes[i].indexBuffer = gRenderer->CreateIndexBuffer(*(TArray<uint>*)&indexData);
+				mdl->meshes[i].indexBuffer = gGHI->CreateIndexBuffer(*(TArray<uint>*)&indexData);
 			}
 
 			mdl->_SetLod(0);

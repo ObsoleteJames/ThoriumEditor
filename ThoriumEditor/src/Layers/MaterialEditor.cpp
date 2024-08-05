@@ -54,7 +54,7 @@ CMaterialEditor::CMaterialEditor()
 	modelEnt = scene->CreateEntity<CModelEntity>();
 	modelEnt->SetModel(previewModel);
 
-	fbView = gRenderer->CreateFrameBuffer(1280, 720, TEXTURE_FORMAT_RGBA8_UNORM);
+	fbView = gGHI->CreateFrameBuffer(1280, 720, TEXTURE_FORMAT_RGBA8_UNORM);
 	scene->GetRenderScene()->SetFrameBuffer(fbView);
 	//dbView = gRenderer->CreateDepthBuffer({ 1280, 720, TH_DBF_D24_S8, 1, false });
 

@@ -40,7 +40,7 @@
 #include "Layers/EditorLog.h"
 #include "Layers/ProjectManager.h"
 
-#include "Platform/Windows/DirectX/DirectXRenderer.h"
+#include "Platform/Windows/DirectX/DirectXInterface.h"
 #include "Platform/Windows/DirectX/DirectXFrameBuffer.h"
 #include "Platform/Windows/DirectX/DirectXTexture.h"
 

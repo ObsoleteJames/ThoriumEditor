@@ -11,6 +11,7 @@
 #include "Rendering/Renderer.h"
 #include "Rendering/RenderScene.h"
 #include "Rendering/DebugRenderer.h"
+#include "Rendering/DefaultRenderer.h"
 #include "Rendering/Texture.h"
 #include "Game/World.h"
 #include "Game/Events.h"
@@ -42,7 +43,7 @@
 
 #include <map>
 
-#include "Platform/Windows/DirectX/DirectXRenderer.h"
+#include "Platform/Windows/DirectX/DirectXInterface.h"
 #include "Platform/Windows/DirectX/DirectXFrameBuffer.h"
 #include "Platform/Windows/DirectX/DirectXTexture.h"
 
@@ -105,10 +106,15 @@ void CEditorEngine::Init()
 
 	CWindow::Init();
 
-	Renderer::CreateRenderer<DirectXRenderer>();
+	gGHI = GetGraphicsInterface();
+	gGHI->Init();
+
+	gRenderer = CreateObject<CDefaultRenderer>();
+	gRenderer->MakeIndestructible();
+	gRenderer->Init();
 
 	gameWindow = new CWindow(editorCfg.wndWidth, editorCfg.wndHeight, editorCfg.wndPosX, editorCfg.wndPosY, "Thorium Editor");
-	gameWindow->SetSwapChain(gRenderer->CreateSwapChain(gameWindow));
+	gameWindow->SetSwapChain(gGHI->CreateSwapChain(gameWindow));
 	gameWindow->SetWindowMode((CWindow::EWindowMode)editorCfg.wndMode);
 
 	gameWindow->OnKeyEvent.Bind(this, &CEditorEngine::KeyEventA);
@@ -134,7 +140,7 @@ void CEditorEngine::Init()
 
 	viewportWidth = 1280;
 	viewportHeight = 720;
-	sceneFrameBuffer = gRenderer->CreateFrameBuffer(1280, 720, TEXTURE_FORMAT_RGBA8_UNORM);
+	sceneFrameBuffer = gGHI->CreateFrameBuffer(1280, 720, TEXTURE_FORMAT_RGBA8_UNORM);
 	//sceneDepthBuffer = gRenderer->CreateDepthBuffer({ 1280, 720, TH_DBF_D24_S8, 1, false });
 
 	CFileSystem::OSCreateDirectory(OSGetDataPath() + "/ThoriumEngine/EditorConfig");
@@ -187,7 +193,7 @@ int CEditorEngine::Run()
 		CAssetManager::Update();
 		CObjectManager::Update();
 
-		gRenderer->ImGuiBeginFrame();
+		gGHI->ImGuiBeginFrame();
 		ImGuizmo::BeginFrame();
 
 		if (!nextSceneName.IsEmpty())
@@ -244,7 +250,6 @@ int CEditorEngine::Run()
 		editorUpdateTime = updateTimer.GetMiliseconds();
 
 		updateTimer.Begin();
-		gRenderer->BeginRender();
 
 		Events::OnRender.Invoke();
 
@@ -280,8 +285,8 @@ int CEditorEngine::Run()
 		updateTimer.Begin();
 
 		gameWindow->swapChain->GetDepthBuffer()->Clear();
-		gRenderer->SetFrameBuffer(gameWindow->swapChain->GetFrameBuffer(), gameWindow->swapChain->GetDepthBuffer());
-		gRenderer->ImGuiRender();
+		gGHI->SetFrameBuffer(gameWindow->swapChain->GetFrameBuffer(), gameWindow->swapChain->GetDepthBuffer());
+		gGHI->ImGuiRender();
 
 		updateTimer.Stop();
 		imguiRenderTime = updateTimer.GetMiliseconds();
@@ -297,7 +302,7 @@ int CEditorEngine::Run()
 			gIsRunning = false;
 	}
 
-	gRenderer->ImGuiShutdown();
+	gGHI->ImGuiShutdown();
 
 	OnExit();
 	return 0;
@@ -313,17 +318,24 @@ void CEditorEngine::OnExit()
 
 	delete assetBrowser;
 	gWorld->Delete();
-	delete gRenderer;
 	delete gameWindow;
 
 	gPhysicsApi->Shutdown();
 	gPhysicsApi->Delete();
 	gPhysicsApi = nullptr;
 
+	gameInstance->Delete();
+	gameInstance = nullptr;
+
+	gRenderer->Delete();
+	delete gGHI;
+
 	CWindow::Shutdown();
 
 	CAssetManager::Shutdown();
 	CModuleManager::Cleanup();
+
+	CObjectManager::Shutdown();
 
 	SaveConsoleLog();
 	CConsole::Shutdown();
@@ -470,8 +482,8 @@ void CEditorEngine::InitEditorData()
 		3, 7
 	};
 
-	boxOutlineMesh.vertexBuffer = gRenderer->CreateVertexBuffer(boxVerts);
-	boxOutlineMesh.indexBuffer = gRenderer->CreateIndexBuffer(boxInds);
+	boxOutlineMesh.vertexBuffer = gGHI->CreateVertexBuffer(boxVerts);
+	boxOutlineMesh.indexBuffer = gGHI->CreateIndexBuffer(boxInds);
 	boxOutlineMesh.numVertices = (uint32)boxVerts.Size();
 	boxOutlineMesh.numIndices = (uint32)boxInds.Size();
 
@@ -566,7 +578,7 @@ void CEditorEngine::GenerateGrid(float gridSize, float quadSize, FMesh* outMesh)
 	outMesh->numVertices = (uint32)verts.Size();
 
 	//outMesh->indexBuffer = gRenderer->CreateIndexBuffer(indices);
-	outMesh->vertexBuffer = gRenderer->CreateVertexBuffer(verts);
+	outMesh->vertexBuffer = gGHI->CreateVertexBuffer(verts);
 }
 
 void CEditorEngine::NewScene()

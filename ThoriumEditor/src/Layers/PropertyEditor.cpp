@@ -373,12 +373,18 @@ void CPropertyEditor::OnUIRender()
 
 		if (selectedEntities.Size() > 0)
 		{
-			int type = selectedEntities[0]->type - 1;
+			int type = selectedEntities[0]->GetType() - 1;
 			const char* typeNames[] = { "Static", "Dynamic" };
 			if (ImGui::TypeSelector("##_entTypeSwitch", &type, 2, typeNames))
 			{
 				for (auto& ent : selectedEntities)
-					ent->type = (EEntityType)(type + 1);
+				{
+					if (type == 0)
+						ent->MakeStatic();
+					else if (type == 1)
+						ent->MakeDynamic();
+				}
+					//ent->type = (EEntityType)(type + 1);
 			}
 
 			static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY;

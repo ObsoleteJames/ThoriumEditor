@@ -306,6 +306,7 @@ private:
 
 	FMesh boxOutlineMesh;
 	FMesh gridMesh;
+
 };
 
 inline CEditorEngine* gEditorEngine() { return (CEditorEngine*)gEngine; }

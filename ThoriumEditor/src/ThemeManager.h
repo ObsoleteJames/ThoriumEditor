@@ -15,6 +15,8 @@ public:
 
 	FFile* file;
 
+	SizeType fontFileRef;
+
 	ImVec4 colors[ImGuiCol_COUNT];
 	ImVec2 windowPadding;
 	ImVec2 framePadding;

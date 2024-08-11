@@ -8,6 +8,7 @@
 #include "EditorWidgets.h"
 #include "EditorEngine.h"
 #include "EditorMenu.h"
+#include "ThemeManager.h"
 
 REGISTER_EDITOR_LAYER(CEditorSettingsWidget, "Edit/Editor Settings", "Settings", false, false)
 
@@ -143,7 +144,124 @@ void CEditorSettingsWidget::SettingsThemes()
 	ImGui::Text("Themes");
 	ImGui::PopFont();
 
+	const auto& themes = ThoriumEditor::GetThemes();
+	const FEditorTheme& theme = ThoriumEditor::Theme();
 
+	if (ImGui::BeginTable("_esThemes", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg))
+	{
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Theme");
+		ImGui::TableNextColumn();
+
+		ImGuiStyle& style = ImGui::GetStyle();
+		static ImGuiStyle ref_saved_style;
+
+		static bool init = true;
+		if (init)
+			ref_saved_style = style;
+		init = false;
+
+		if (ImGui::BeginCombo("##themeSelector", theme.name.c_str()))
+		{
+			for (auto& th : themes)
+			{
+				if (ImGui::Selectable(th.name.c_str(), theme.name == th.name))
+				{
+					ThoriumEditor::SetTheme(th.name);
+					ref_saved_style = style;
+				}
+
+			}
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Add"))
+		{
+			auto& newTheme = ThoriumEditor::AddTheme("New Theme");
+			//newTheme = theme;
+			ThoriumEditor::SetTheme(newTheme.name);
+		}
+
+		if (ImGui::TableTreeHeader("Edit##editThemeHeader", 0, true))
+		{
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			if (ImGui::Button("Save"))
+				ThoriumEditor::SaveTheme(theme);
+
+			ImGui::BeginDisabled(theme.name == "default");
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("Name");
+			ImGui::TableNextColumn();
+			ImGui::InputText("##themeNameEdit", (FString*)&theme.name);
+
+			ImGui::EndDisabled();
+
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+
+			ImGui::SeparatorText("Sizes");
+			ImGui::SliderFloat2("WindowPadding", (float*)&style.WindowPadding, 0.0f, 20.0f, "%.0f");
+			ImGui::SliderFloat2("FramePadding", (float*)&style.FramePadding, 0.0f, 20.0f, "%.0f");
+			ImGui::SliderFloat2("CellPadding", (float*)&style.CellPadding, 0.0f, 20.0f, "%.0f");
+			ImGui::SliderFloat2("ItemSpacing", (float*)&style.ItemSpacing, 0.0f, 20.0f, "%.0f");
+
+			ImGui::SliderFloat("WindowRounding", &style.WindowRounding, 0.0f, 12.0f, "%.0f");
+			ImGui::SliderFloat("ChildRounding", &style.ChildRounding, 0.0f, 12.0f, "%.0f");
+			ImGui::SliderFloat("FrameRounding", &style.FrameRounding, 0.0f, 12.0f, "%.0f");
+			ImGui::SliderFloat("GrabRounding", &style.GrabRounding, 0.0f, 12.0f, "%.0f");
+			ImGui::SliderFloat("TabRounding", &style.TabRounding, 0.0f, 12.0f, "%.0f");
+
+			ImGui::SeparatorText("Colours");
+
+			static ImGuiTextFilter filter;
+			filter.Draw("Filter colors", ImGui::GetFontSize() * 16);
+
+			static ImGuiColorEditFlags alpha_flags = 0;
+			if (ImGui::RadioButton("Opaque", alpha_flags == ImGuiColorEditFlags_None)) { alpha_flags = ImGuiColorEditFlags_None; } ImGui::SameLine();
+			if (ImGui::RadioButton("Alpha", alpha_flags == ImGuiColorEditFlags_AlphaPreview)) { alpha_flags = ImGuiColorEditFlags_AlphaPreview; } ImGui::SameLine();
+			if (ImGui::RadioButton("Both", alpha_flags == ImGuiColorEditFlags_AlphaPreviewHalf)) { alpha_flags = ImGuiColorEditFlags_AlphaPreviewHalf; } ImGui::SameLine();
+
+			//ImGui::BeginChild("##colors", ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar | ImGuiWindowFlags_NavFlattened);
+			ImGui::PushItemWidth(-160);
+			for (int i = 0; i < ImGuiCol_COUNT; i++)
+			{
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				const char* name = ImGui::GetStyleColorName(i);
+				if (!filter.PassFilter(name))
+					continue;
+				ImGui::Text(name);
+
+				ImGui::TableNextColumn();
+
+				ImGui::PushID(i);
+				ImGui::ColorEdit4("##color", (float*)&style.Colors[i], ImGuiColorEditFlags_AlphaBar | alpha_flags);
+				if (memcmp(&style.Colors[i], &ref_saved_style.Colors[i], sizeof(ImVec4)) != 0)
+				{
+					// Tips: in a real user application, you may want to merge and use an icon font into the main font,
+					// so instead of "Save"/"Revert" you'd use icons!
+					// Read the FAQ and docs/FONTS.md about using icon fonts. It's really easy and super convenient!
+					ImGui::SameLine(0.0f, style.ItemInnerSpacing.x); if (ImGui::Button("Save")) { ref_saved_style.Colors[i] = style.Colors[i]; }
+					ImGui::SameLine(0.0f, style.ItemInnerSpacing.x); if (ImGui::Button("Revert")) { style.Colors[i] = ref_saved_style.Colors[i]; }
+				}
+				//ImGui::SameLine(0.0f, style.ItemInnerSpacing.x);
+				//ImGui::TextUnformatted(name);
+				ImGui::PopID();
+			}
+			ImGui::PopItemWidth();
+			//ImGui::EndChild();
+
+			ImGui::TreePop();
+		}
+
+		ImGui::EndTable();
+	}
 }
 
 bool CEditorSettingsWidget::ShortcutEditor(const char* str_id, FEditorShortcut * sc)

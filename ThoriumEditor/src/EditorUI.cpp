@@ -459,8 +459,10 @@ void CEditorEngine::UpdateEditor()
 
 			ImGui::Text("object count: %d", CObjectManager::GetAllObjects().size());
 			if (gWorld)
+			{
 				ImGui::Text("entities count: %d", gWorld->GetEntities().size());
-
+				ImGui::Text("dyanmic entities count: %d", gWorld->GetDynamicEntities().Size());
+			}
 			// Resources
 			ImGui::Separator();
 
@@ -706,7 +708,7 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 	if (!entIcon)
 		entIcon = ThoriumEditor::GetThemeIcon("entities/CEntity");
 
-	if (ent->type == ENTITY_DYNAMIC)
+	if (ent->GetType() == ENTITY_DYNAMIC)
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.71f, 0.81f, 1.f, 1.f));
 
 	if (numChildren > 0)
@@ -722,7 +724,7 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 		ImGui::SetCursorScreenPos(cursor + ImVec2(36, 0));
 		ImGui::Text(ent->Name().c_str());
 
-		if (ent->type == ENTITY_DYNAMIC)
+		if (ent->GetType() == ENTITY_DYNAMIC)
 			ImGui::PopStyleColor();
 
 		ImGui::TableNextColumn();
@@ -746,7 +748,7 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 		ImGui::SetCursorScreenPos(cursor + ImVec2(36, 0));
 		ImGui::Text(ent->Name().c_str());
 
-		if (ent->type == ENTITY_DYNAMIC)
+		if (ent->GetType() == ENTITY_DYNAMIC)
 			ImGui::PopStyleColor();
 
 		ImGui::TableNextColumn();

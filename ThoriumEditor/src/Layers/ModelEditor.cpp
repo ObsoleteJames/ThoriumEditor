@@ -90,6 +90,8 @@ void CModelEditor::SetModel(CModelAsset* mdl)
 
 	camera->position = mdl->bounds.position - camera->GetForwardVector() * FMath::Max(mdl->bounds.extents.Magnitude() * 1.5f, 1.f);
 
+	mdl->LoadAllMaterials();
+
 	if (mdl->File())
 	{
 		FKeyValue kv(mdl->File()->GetSdkPath());
@@ -891,146 +893,12 @@ void LoadMeshFile(FMeshFile& m)
 
 void CModelEditor::Compile()
 {
-	//TArray<FMaterial> oldMats = mdl->materials;
-
-	//mdl->ClearMeshData();
-	//mdl->meshes.Clear();
-	//mdl->materials.Clear();
-	//mdl->skeleton.bones.Clear();
-
-	//SizeType meshesOffset = 0;
-	//SizeType materialsOffset = 0;
-	//SizeType boneOffset = 0;
-
-	//for (auto& file : meshFiles)
-	//{
-	//	if (!file.scene)
-	//		LoadMeshFile(file);
-
-	//	if (file.scene)
-	//	{
-	//		auto* scene = file.scene;
-	//		auto* root = scene->mRootNode;
-
-	//		for (uint i = 0; i < scene->mNumMaterials; i++)
-	//		{
-	//			aiMaterial* sMat = scene->mMaterials[i];
-
-	//			FMaterial mat;
-	//			mat.name = sMat->GetName().C_Str();
-
-	//			mdl->materials.Add(mat);
-	//		}
-
-	//		/*for (uint i = 0; i < scene->mNumSkeletons; i++)
-	//		{
-	//			aiSkeleton* skeleton = scene->mSkeletons[i];
-
-	//			for (int ii = 0; ii < skeleton->mNumBones; ii++)
-	//			{
-	//				aiSkeletonBone* bone = skeleton->mBones[ii];
-	//				aiMatrix4x4& mat = bone->mLocalMatrix;
-
-	//				aiVector3D scale;
-	//				aiVector3D pos;
-	//				aiQuaternion rot;
-
-	//				mat.Decompose(scale, rot, pos);
-
-	//				FBone b;
-	//				b.name = bone->mNode ? bone->mNode->mName.C_Str() : "BONE";
-	//				b.position = { pos.x, pos.y, pos.z };
-	//				b.rotation = { rot.x, rot.y, rot.z, rot.w };
-
-	//				b.parent = bone->mParent == -1 ? -1 : bone->mParent + (int)boneOffset;
-
-	//				mdl->skeleton.bones.Add(b);
-	//			}
-	//		}*/
-
-	//		TArray<TPair<int, aiBone*>> bones;
-
-	//		CompileNode(file, scene, root, meshesOffset, materialsOffset, bones);
-
-	//		for (auto& b : bones)
-	//		{
-	//			FBone newBone;
-	//			newBone.name = b.Value->mName.C_Str();
-
-	//			aiVector3D scale;
-	//			aiVector3D pos;
-	//			aiQuaternion rot;
-
-	//			b.Value->mNode->mTransformation.Decompose(scale, rot, pos);
-	//			newBone.position = { pos.x, pos.y, pos.z };
-	//			newBone.rotation = { rot.x, rot.y, rot.z, rot.w };
-
-	//			auto& mesh = mdl->meshes[b.Key];
-
-	//			for (int i = 0; i < b.Value->mNumWeights; i++)
-	//			{
-	//				if (!mesh.vertexData)
-	//					continue;
-
-	//				auto& weight = b.Value->mWeights[i];
-	//				if (weight.mVertexId >= mesh.numVertexData)
-	//					continue;
-
-	//				FVertex& vertex = mesh.vertexData[weight.mVertexId];
-
-	//				for (int x = 0; x < 4; x++)
-	//				{
-	//					if (vertex.bones[x] == -1)
-	//					{
-	//						vertex.bones[x] = (int)mdl->skeleton.bones.Size();
-	//						vertex.boneInfluence[x] = weight.mWeight;
-	//						break;
-	//					}
-	//				}
-	//			}
-
-	//			mdl->skeleton.bones.Add(newBone);
-	//		}
-
-	//		// Resolve bone parents
-	//		for (int i = 0; i < bones.Size(); i++)
-	//		{
-	//			aiNode* parent = bones[i].Value->mNode->mParent;
-	//			mdl->skeleton.bones[i].parent = mdl->GetBoneIndex(parent->mName.C_Str());
-	//		}
-
-	//		for (int i = 0; i < mdl->meshes.Size(); i++)
-	//		{
-	//			if (mdl->meshes[i].meshName.IsEmpty())
-	//				mdl->meshes[i].meshName = "Mesh " + FString::ToString(i);
-	//		}
-
-	//		materialsOffset = mdl->materials.Size();
-	//		meshesOffset = mdl->meshes.Size();
-	//		boneOffset = mdl->skeleton.bones.Size();
-	//	}
-	//}
-
-	//for (auto& mat : mdl->materials)
-	//{
-	//	for (auto& m : oldMats)
-	//	{
-	//		if (mat.name == m.name)
-	//		{
-	//			mat.obj = m.obj;
-	//			mat.path = m.path;
-	//			break;
-	//		}
-	//	}
-	//}
-
-	//mdl->CalculateBounds();
-	//mdl->UpdateBoneMatrices();
-
 	if (compiler.Compile(mdl, meshFiles.Data(), meshFiles.Size()))
 	{
 		bCompiled = true;
 		modelEnt->SetModel(mdl);
+
+		bSaved = false;
 	}
 	else
 		bCompiled = false;
@@ -1449,6 +1317,8 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 
 				FMaterial mat;
 				mat.name = sMat->GetName().C_Str();
+				if (mat.name.IsEmpty())
+					mat.name = "Material_" + FString::ToString(i);
 
 				if (settings.bCreateMaterials)
 				{

@@ -40,6 +40,7 @@
 #include "Layers/EditorSettings.h"
 #include "Layers/EditorLog.h"
 #include "Layers/ProjectManager.h"
+#include "Dialogs/Dialog.h"
 
 #include <map>
 
@@ -59,6 +60,8 @@
 
 #define TEX_VIEW(tex) ((DirectXTexture2D*)tex)->view
 
+CModule& GetModule_ThoriumEditor();
+
 FEditorLog gBuildLog("Build");
 
 FEditorShortcut scSaveScene("Save Scene", "Editor", ImGuiKey_S, 0, 1);
@@ -74,6 +77,8 @@ void CEditorEngine::Init()
 	InitMinimal();
 	gIsEditor = true;
 	gIsClient = true;
+
+	CModuleManager::RegisterModule(&GetModule_ThoriumEditor());
 
 	rootMenu = new CEditorMenu(FString());
 	SetupMenu();
@@ -171,6 +176,9 @@ void CEditorEngine::Init()
 	//	assetBrowser->SetDir(activeGame.mod->Name(), FString());
 	//	LoadWorld(ToFString(activeGame.startupScene));
 	//}
+
+	//uiMat = CreateObject<CMaterial>();
+	//uiMat->SetShader("")
 
 	LoadWorld();
 }

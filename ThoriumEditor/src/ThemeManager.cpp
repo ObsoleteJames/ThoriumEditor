@@ -14,64 +14,6 @@ static TMap<size_t, TObjectPtr<CTexture>> resourceIcons;
 static TArray<FEditorTheme> themes;
 static size_t curTheme = 0;
 
-const char* ImGuiColorNames[] = {
-	"Text",
-	"TextDisabled",
-	"WindowBg",
-	"ChildBg",
-	"PopupBg",
-	"Border",
-	"BorderShadow",
-	"FrameBg",
-	"FrameBgHovered",
-	"FrameBgActive",
-	"TitleBg",
-	"TitleBgActive",
-	"TitleBgCollapsed",
-	"MenuBarBg",
-	"ScrollbarBg",
-	"ScrollbarGrab",
-	"ScrollbarGrabHovered",
-	"ScrollbarGrabActive",
-	"CheckMark",
-	"SliderGrab",
-	"SliderGrabActive",
-	"Button",
-	"ButtonHovered",
-	"ButtonActive",
-	"Header",
-	"HeaderHovered",
-	"HeaderActive",
-	"Separator",
-	"SeparatorHovered",
-	"SeparatorActive",
-	"ResizeGrip",
-	"ResizeGripHovered",
-	"ResizeGripActive",
-	"Tab",
-	"TabHovered",
-	"TabActive",
-	"TabUnfocused",
-	"TabUnfocusedActive",
-	"DockingPreview",
-	"DockingEmptyBg",
-	"PlotLines",
-	"PlotLinesHovered",
-	"PlotHistogram",
-	"PlotHistogramHovered",
-	"TableHeaderBg",
-	"TableBorderStrong",
-	"TableBorderLight",
-	"TableRowBg",
-	"TableRowBgAlt",
-	"TextSelectedBg",
-	"DragDropTarget",
-	"NavHighlight",
-	"NavWindowingHighlight",
-	"NavWindowingDimBg",
-	"ModalWindowDimBg",
-};
-
 static ImVec4 StringToVec4(const FString& str)
 {
 	TArray<FString> values = str.Split(',');
@@ -139,7 +81,8 @@ static void LoadTheme(FFile* file)
 
 	for (int i = 0; i < ImGuiCol_COUNT; i++)
 	{
-		KVValue* v = colors->GetValue(ImGuiColorNames[i], false);
+		const char* name = ImGui::GetStyleColorName(i);
+		KVValue* v = colors->GetValue(name, false);
 		if (!v)
 			continue;
 
@@ -381,7 +324,8 @@ FEditorTheme& ThoriumEditor::AddTheme(const FString& name)
 	th = themes[0];
 	th.name = name;
 
-	CFileSystem::FindMod("Engine")->CreateDir("editor/themes/" + name);
+	//CFileSystem::FindMod("Engine")->CreateDir("editor/themes/" + name);
+	th.file = CFileSystem::FindMod("Eninge")->CreateFile("editor/themes/" + name + "theme.cfg");
 
 	SaveTheme(th);
 
@@ -403,7 +347,8 @@ void ThoriumEditor::SaveTheme(const FEditorTheme& theme)
 			"," + std::to_string(theme.colors[i].z) +
 			"," + std::to_string(theme.colors[i].w));
 
-		colors->SetValue(ImGuiColorNames[i], value);
+		const char* name = ImGui::GetStyleColorName(i);
+		colors->SetValue(name, value);
 	}
 
 	kv.SetValue("window_padding", std::to_string(theme.windowPadding.x) + "," + std::to_string(theme.windowPadding.y));

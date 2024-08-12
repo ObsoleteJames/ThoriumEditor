@@ -48,6 +48,7 @@
 #include "ImGui/ImGui.h"
 #include "ImGui/imgui_internal.h"
 #include "ImGui/imgui_thorium.h"
+#include "Dialogs/Dialog.h"
 
 #define IMGUIZMO_API SDK_API
 #include "ImGuizmo.h"
@@ -127,7 +128,7 @@ void CEditorEngine::UpdateEditor()
 	if (menuAction != 0)
 		menuAction = 0;
 
-	if (bOpenProj && !CProjectManager::IsOpen())
+	if (bOpenProj && gRenderStats.frameCount > 2)
 	{
 		CProjectManager::Open(0);
 		bOpenProj = false;
@@ -240,7 +241,8 @@ void CEditorEngine::UpdateEditor()
 			const ImGuiPayload* peek = ImGui::AcceptDragDropPayload("THORIUM_ASSET_FILE", ImGuiDragDropFlags_AcceptPeekOnly);
 			if (content)
 			{
-				FFile* file = *(FFile**)content->Data;
+				FFileDragDropPayload& files = *(FFileDragDropPayload*)content->Data;
+				FFile* file = files.files[0];
 				FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 				if (type == (FAssetClass*)CScene::StaticClass())
 				{
@@ -259,7 +261,8 @@ void CEditorEngine::UpdateEditor()
 			}
 			if (peek)
 			{
-				FFile* file = *(FFile**)peek->Data;
+				FFileDragDropPayload& files = *(FFileDragDropPayload*)peek->Data;
+				FFile* file = files.files[0];
 				FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 				if (type == (FAssetClass*)CMaterial::StaticClass())
 				{

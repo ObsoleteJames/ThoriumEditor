@@ -40,7 +40,6 @@
 #include "Layers/EditorSettings.h"
 #include "Layers/EditorLog.h"
 #include "Layers/ProjectManager.h"
-#include "Dialogs/Dialog.h"
 
 #include <map>
 
@@ -52,6 +51,7 @@
 #include "ImGui/ImGui.h"
 #include "ImGui/imgui_internal.h"
 #include "ImGui/imgui_thorium.h"
+#include "Dialogs/Dialog.h"
 
 #define IMGUIZMO_API SDK_API
 #include "ImGuizmo.h"
@@ -176,6 +176,7 @@ void CEditorEngine::Init()
 	//	assetBrowser->SetDir(activeGame.mod->Name(), FString());
 	//	LoadWorld(ToFString(activeGame.startupScene));
 	//}
+	bOpenProj = !bProjectLoaded;
 
 	//uiMat = CreateObject<CMaterial>();
 	//uiMat->SetShader("")
@@ -353,7 +354,7 @@ bool CEditorEngine::LoadProject(const FString& path)
 {
 	bool r = CEngine::LoadProject(path);
 
-	bOpenProj = !r;
+	//bOpenProj = !r;
 	return r;
 }
 

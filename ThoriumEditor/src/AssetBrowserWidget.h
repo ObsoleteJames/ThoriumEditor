@@ -42,6 +42,12 @@ struct FBAWindowContext : public FBADataBase
 
 typedef FBADataBase FBrowserActionData;
 
+struct FFileDragDropPayload
+{
+	FFile* files[32] = {0};
+	uint16 numFiles;
+};
+
 class FAssetBrowserAction
 {
 	typedef TArray<FAssetBrowserAction*> FActionList;
@@ -95,6 +101,8 @@ private:
 	bool IsFileSelected(FFile* file);
 
 	void ImportAsset();
+
+	void DoMoveFile(FDirectory* target);
 
 public:
 	bool bAllowFileEdit = true;

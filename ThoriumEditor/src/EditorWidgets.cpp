@@ -5,6 +5,7 @@
 #include "Assets/AssetManager.h"
 #include "ThemeManager.h"
 #include "Platform/Windows/DirectX/DirectXTexture.h"
+#include "AssetBrowserWidget.h"
 
 #include "Math/Math.h"
 
@@ -138,7 +139,8 @@ bool ImGui::AssetPtrWidget(const char* label, TObjectPtr<CAsset>** values, int n
 		const ImGuiPayload* content = ImGui::AcceptDragDropPayload("THORIUM_ASSET_FILE");
 		if (content)
 		{
-			FFile* file = *(FFile**)content->Data;
+			FFileDragDropPayload& files = *(FFileDragDropPayload*)content->Data;
+			FFile* file = files.files[0];
 			FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 			if (type->CanCast(filterClass))
 			{

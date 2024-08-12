@@ -1,16 +1,19 @@
 #pragma once
 
 #include "Layer.h"
+#include "Dialogs/Dialog.h"
 #include "EditorCore.h"
 
 struct FProject;
 
-class CProjectManager : public CLayer
+class CProjectManager : public CDialogWnd
 {
 	static bool bIsOpen;
 
 public:
-	void OnUIRender() override;
+	CProjectManager();
+
+	void Render() override;
 
 	void CreateProject(const FString& name, const FString& path);
 	void OpenProject(int index);

@@ -14,6 +14,7 @@
 #include "ImGui/imgui_thorium.h"
 #include "EditorWidgets.h"
 #include "ThemeManager.h"
+#include "Dialogs/ChoiceDialog.h"
 
 #define TEX_VIEW(tex) ((DirectXTexture2D*)tex)->view
 
@@ -23,6 +24,10 @@ FAssetBrowserAction::FAssetBrowserAction()
 }
 
 FAssetBrowserAction::FActionList FAssetBrowserAction::actions;
+
+// fuck you windows api
+#undef DeleteFile
+#undef MoveFile
 
 void CAssetBrowserWidget::RenderUI(float width, float height)
 {
@@ -78,6 +83,9 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 			if (ImGui::IsItemClicked())
 				SetDir(m->Name(), "");
+
+			if (m->Name() == mod)
+				DoMoveFile(m->GetRootDir());
 
 			ImGui::SetCursorScreenPos(cursorPos + ImVec2(20, 0));
 			if (m->type == MOD_ENGINE)
@@ -226,6 +234,8 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 				}
 				ImGui::PopStyleColor();
 				
+				DoMoveFile(d);
+
 				ImGui::Text(ToFString(d->GetName()).c_str());
 
 				if (ImGui::IsItemClicked())
@@ -236,7 +246,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 			{
 				ImGui::TableNextColumn();
 
-				ImGui::ButtonEx("newFolder", ImVec2(itemSize.x, itemSize.x));
+				ImGui::ImageButtonEx(GImGui->CurrentWindow->GetID("##newFolder"), ((DirectXTexture2D*)folderImg)->view, ImVec2(itemSize.x, itemSize.x), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), ImVec4(1, 1, 1, 1));
 
 				ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
 				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0, 0 });
@@ -255,6 +265,8 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 				if (ImGui::IsKeyPressed(ImGuiKey_Escape) || !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
 					bCreatingFolder = false;
 			}
+
+			bool bDeleteSelected = false;
 
 			for (auto& f : curDir->GetFiles())
 			{
@@ -283,10 +295,23 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 					else
 						SetSelectedFile(f);
 				}
+				if (!bSelected && ImGui::IsItemClicked(ImGuiMouseButton_Right))
+				{
+					if (ImGui::IsKeyDown(ImGuiKey_ModCtrl))
+						AddSelectedFile(f);
+					else
+						SetSelectedFile(f);
+				}
+
 				if (bAllowFileEdit && ImGui::BeginPopupContextItem())
 				{
 					ImGui::MenuItem("Rename");
-					ImGui::MenuItem("Delete");
+					if (ImGui::MenuItem("Delete"))
+					{
+						CChoiceDialog choice = CChoiceDialog("Are you sure?", "This will permantly delete " + FString::ToString(selectedFiles.Size()) + " file(s), this cannnot be undone.\nAre you sure you want to continue?", CChoiceDialog::OPTION_YES_NO);
+						int r = choice.Exec();
+						bDeleteSelected = r;
+					}
 					for (auto* action : FAssetBrowserAction::GetActions())
 					{
 						if (action->Type() == BA_FILE_CONTEXTMENU && action->TargetClass() == type)
@@ -331,10 +356,22 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 				if (ImGui::BeginDragDropSource())
 				{
-					if (type)
-						ImGui::SetDragDropPayload("THORIUM_ASSET_FILE", &f, sizeof(void*));
+					FFileDragDropPayload payload{};
+					if (selectedFiles.Size() > 0)
+					{
+						payload.numFiles = FMath::Min(selectedFiles.Size(), 32ull);
+						memcpy(payload.files, selectedFiles.Data(), payload.numFiles * sizeof(FFile*));
+					}
 					else
-						ImGui::SetDragDropPayload("THORIUM_GENERIC_FILE", &f, sizeof(void*));
+					{
+						payload.files[0] = f;
+						payload.numFiles = 1;
+					}
+
+					if (type)
+						ImGui::SetDragDropPayload("THORIUM_ASSET_FILE", &payload, sizeof(payload));
+					else
+						ImGui::SetDragDropPayload("THORIUM_GENERIC_FILE", &payload, sizeof(payload));
 
 					ImGui::EndDragDropSource();
 				}
@@ -369,6 +406,14 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 					ImGui::RenderTextClipped(cursor + ImVec2(5, itemSize.y - 18), cursor + ImVec2(itemSize.x - 5, itemSize.y), type->GetName().c_str(), nullptr, nullptr);
 				ImGui::PopStyleColor();
 
+			}
+
+			if (bDeleteSelected)
+			{
+				for (auto* f : selectedFiles)
+					f->Mod()->DeleteFile(f->Path());
+				
+				selectedFiles.Clear();
 			}
 
 			if (bCreatingFile)
@@ -418,7 +463,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 		if (bAllowFileEdit && ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
 		{
 			if (ImGui::MenuItem("New Folder"))
-				bCreatingFolder = true;
+				PrepareNewFolder();
 
 			ImGui::Separator();
 			for (auto* action : FAssetBrowserAction::GetActions())
@@ -516,6 +561,9 @@ void CAssetBrowserWidget::DrawDirTree(FDirectory* _dir, FDirectory* parent, FMod
 	bool bOpen = ImGui::TreeNodeEx(("\t " + _dir->GetName() + "##_" + _mod->Name() + _dir->GetPath()).c_str(), flags);
 	if (ImGui::IsItemClicked())
 		SetDir(_mod, _dir);
+
+	if (_mod->Name() == mod)
+		DoMoveFile(_dir);
 
 	ImGui::SetCursorScreenPos(cursorPos + ImVec2(20, 0));
 	ImGui::Image(TEX_VIEW(folderImg), ImVec2(14, 14));
@@ -663,5 +711,28 @@ foundClass:
 			a->Invoke(&data);
 			break;
 		}
+	}
+}
+
+void CAssetBrowserWidget::DoMoveFile(FDirectory* _dir)
+{
+	if (ImGui::BeginDragDropTarget())
+	{
+		auto* p = ImGui::AcceptDragDropPayload("THORIUM_ASSET_FILE");
+		if (!p)
+			p = ImGui::AcceptDragDropPayload("THORIUM_GENERIC_FILE");
+		if (p)
+		{
+			FFileDragDropPayload& payload = *(FFileDragDropPayload*)p->Data;
+
+			int r = CChoiceDialog("Are you sure?", "This will move " + FString::ToString(payload.numFiles) + " File(s) into " + _dir->GetName() + ".\nAre you sure you want to continue?", CChoiceDialog::OPTION_YES_NO).Exec();
+			if (r == 1)
+			{
+				for (uint16 i = 0; i < payload.numFiles; i++)
+					payload.files[i]->Mod()->MoveFile(payload.files[i]->Path(), _dir->GetPath());
+			}
+		}
+
+		ImGui::EndDragDropTarget();
 	}
 }

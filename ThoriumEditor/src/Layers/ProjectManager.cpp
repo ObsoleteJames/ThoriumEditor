@@ -1,10 +1,10 @@
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "ProjectManager.h"
 #include "EditorEngine.h"
 
 #include "Misc/FileHelper.h"
 
-#define IMGUI_DEFINE_MATH_OPERATORS
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_internal.h"
 #include "Imgui/imgui_thorium.h"
@@ -12,13 +12,18 @@
 #define PROJECT_MODE_OPEN 0
 #define PROJECT_MODE_CREATE 1
 
-REGISTER_EDITOR_LAYER(CProjectManager, nullptr, nullptr, false, false)
+//REGISTER_EDITOR_LAYER(CProjectManager, nullptr, nullptr, false, false)
 
 bool CProjectManager::bIsOpen = false;
 
-void CProjectManager::OnUIRender()
+CProjectManager::CProjectManager() : CDialogWnd("Project Manager")
 {
-	if (ImGui::BeginPopupModal("Projects##projectManager", &bIsOpen))
+	windowSize = { 670, 440 };
+}
+
+void CProjectManager::Render()
+{
+	if (ImGui::Begin("Projects##projectManager", 0, DIALOG_WND_FLAGS))
 	{
 		if (mode == PROJECT_MODE_OPEN)
 		{
@@ -65,10 +70,8 @@ void CProjectManager::OnUIRender()
 
 		}
 
-		ImGui::EndPopup();
 	}
-	else
-		bIsOpen = false;
+	ImGui::End();
 }
 
 void CProjectManager::RenderProjectItem(const FProject& proj, int index)
@@ -106,7 +109,7 @@ void CProjectManager::CreateProject(const FString& name, const FString& path)
 void CProjectManager::OpenProject(int i)
 {
 	gEditorEngine()->LoadProject(gEditorEngine()->availableProjects[i].dir);
-	ImGui::CloseCurrentPopup();
+	Finish();
 }
 
 void CProjectManager::AddProject()
@@ -128,9 +131,13 @@ void CProjectManager::AddProject()
 
 void CProjectManager::Open(int mode)
 {
-	auto* m = (CProjectManager*)CProjectManagerType_Instance.Instantiate();
-	m->mode = mode;
-	m->bEnabled = true;
-	bIsOpen = true;
-	ImGui::OpenPopup("Projects##projectManager");
+	//auto* m = (CProjectManager*)CProjectManagerType_Instance.Instantiate();
+	//m->mode = mode;
+	//m->bEnabled = true;
+	//bIsOpen = true;
+	//ImGui::OpenPopup("Projects##projectManager");
+
+	CProjectManager wnd = CProjectManager();
+	wnd.mode = mode;
+	wnd.Exec();
 }

@@ -27,6 +27,7 @@
 #include "ImGui/imgui_thorium.h"
 #include "ImGui/imgui_thorium_math.h"
 #include "EditorWidgets.h"
+#include "Dialogs/ChoiceDialog.h"
 
 REGISTER_EDITOR_LAYER(CModelEditor, "Tools/Model Editor", nullptr, true, false)
 
@@ -269,7 +270,8 @@ void CModelEditor::OnUIRender()
 			{
 				if (auto* p = ImGui::AcceptDragDropPayload("THORIUM_ASSET_FILE"); p != nullptr)
 				{
-					FFile* file = *(FFile**)p->Data;
+					FFileDragDropPayload& files = *(FFileDragDropPayload*)p->Data;
+					FFile* file = files.files[0];
 					FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 					if (type == (FAssetClass*)CModelAsset::StaticClass())
 					{
@@ -802,7 +804,16 @@ void CModelEditor::OnUIRender()
 		if (!bSaved && mdl)
 		{
 			saveCallback = &CModelEditor::OnSaveOpenModel;
-			ImGui::OpenPopup("Continue without saving?##_MDLEDITCLOSE");
+			int r = CChoiceDialog("Continue without saving?", "Do you want to save before continuing?", CChoiceDialog::OPTION_YES_NO_CANCEL).Exec();
+			if (r == 2)
+			{
+				SaveMdl();
+				OnSaveOpenModel(r);
+			}
+			else if (r == 1)
+				OnSaveOpenModel(r);
+			
+			//ImGui::OpenPopup("Continue without saving?##_MDLEDITCLOSE");
 		}
 		else
 			ThoriumEditor::OpenFile(openMdlId, (FAssetClass*)CModelAsset::StaticClass());
@@ -819,7 +830,17 @@ void CModelEditor::OnUIRender()
 		if (!bSaved && mdl)
 		{
 			saveCallback = &CModelEditor::OnSaveExit;
-			ImGui::OpenPopup("Continue without saving?##_MDLEDITCLOSE");
+			//ImGui::OpenPopup("Continue without saving?##_MDLEDITCLOSE");
+			int r = CChoiceDialog("Continue without saving?", "Do you want to save before continuing?", CChoiceDialog::OPTION_YES_NO_CANCEL).Exec();
+			if (r == 2)
+			{
+				SaveMdl();
+				gEditorEngine()->PollRemoveLayer(this);
+			}
+			else if (r == 1)
+				gEditorEngine()->PollRemoveLayer(this);
+			else
+				bExit = false;
 		}
 		else
 			gEditorEngine()->PollRemoveLayer(this);
@@ -1218,6 +1239,7 @@ void CModelEditor::OnSaveNewModel(int r)
 	if (r != 0)
 	{
 		SetModel(CreateObject<CModelAsset>());
+		bSaved = false;
 	}
 }
 

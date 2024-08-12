@@ -6,6 +6,8 @@ class CWindow;
 class ImGuiContext;
 class ISwapChain;
 
+#define DIALOG_WND_FLAGS (1 | 1 << 1 | 1 << 2)
+
 enum EDialogFlags_
 {
 	EDialogFlags_NoResize = 1,
@@ -17,11 +19,12 @@ class CDialogWnd
 {
 public:
 	CDialogWnd() = default;
+	CDialogWnd(const FString& title, EDialogFlags flags = 0);
 
 	int Exec();
 
 protected:
-	void Finish(int returnCode);
+	void Finish(int returnCode = 0);
 
 	virtual void Render();
 

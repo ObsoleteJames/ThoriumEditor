@@ -10,6 +10,10 @@
 
 #include "GLFW/glfw3.h"
 
+CDialogWnd::CDialogWnd(const FString& t, EDialogFlags f /*= 0*/) : title(t), flags(f)
+{
+}
+
 int CDialogWnd::Exec()
 {
 	int w, h;
@@ -46,8 +50,12 @@ int CDialogWnd::Exec()
 
 		ImGui::SetNextWindowSize({ windowSize.x, windowSize.y }, ImGuiCond_Always);
 		ImGui::SetNextWindowPos({ 0, 0 }, ImGuiCond_Always);
+		//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
 
 		Render();
+
+		ImGui::PopStyleVar(1);
 		
 		swapChain->GetDepthBuffer()->Clear();
 		gGHI->SetFrameBuffer(swapChain->GetFrameBuffer(), swapChain->GetDepthBuffer());

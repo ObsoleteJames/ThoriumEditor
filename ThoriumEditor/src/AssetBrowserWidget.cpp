@@ -6,6 +6,7 @@
 #include "Assets/AssetManager.h"
 #include "Assets/Asset.h"
 #include "Rendering/Shader.h"
+#include "EditorEngine.h"
 #include "Platform/Windows/DirectX/DirectXTexture.h"
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -21,6 +22,23 @@
 FAssetBrowserAction::FAssetBrowserAction()
 {
 	actions.Add(this);
+}
+
+FAssetBrowserAction* FAssetBrowserAction::GetAction(FAssetClass* target, EBrowserActionType type /*= BA_INVALID*/)
+{
+	for (auto* action : actions)
+	{
+		if (action->targetClass == target)
+		{
+			if (type == BA_INVALID)
+				return action;
+
+			if (type == action->type)
+				return action;
+		}
+	}
+
+	return nullptr;
 }
 
 FAssetBrowserAction::FActionList FAssetBrowserAction::actions;
@@ -124,30 +142,30 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 			ImGui::RenderText(ImVec2(cursor.x, cursor.y), txt);
 			ImGui::PopFont();
 			ImGui::PopStyleColor();
-		}
 
-		for (auto& m : mods)
-		{
-			if (m->type != MOD_ADDON)
-				continue;
-
-			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;
-			if (dir.IsEmpty() && m->Name() == mod)
-				flags |= ImGuiTreeNodeFlags_Selected;
-
-			bool bOpen = ImGui::TreeNodeEx(m->Name().c_str(), flags);
-
-			if (ImGui::IsItemClicked())
-				SetDir(m->Name(), "");
-
-			if (bOpen)
+			for (auto& m : mods)
 			{
-				FDirectory* root = m->GetRootDir();
-				//DrawDirTree(root, nullptr);
-				for (auto d : root->GetSubDirectories())
-					DrawDirTree(d, root, m);
+				if (m->type != MOD_ADDON)
+					continue;
 
-				ImGui::TreePop();
+				ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;
+				if (dir.IsEmpty() && m->Name() == mod)
+					flags |= ImGuiTreeNodeFlags_Selected;
+
+				bool bOpen = ImGui::TreeNodeEx(m->Name().c_str(), flags);
+
+				if (ImGui::IsItemClicked())
+					SetDir(m->Name(), "");
+
+				if (bOpen)
+				{
+					FDirectory* root = m->GetRootDir();
+					//DrawDirTree(root, nullptr);
+					for (auto d : root->GetSubDirectories())
+						DrawDirTree(d, root, m);
+
+					ImGui::TreePop();
+				}
 			}
 		}
 	}
@@ -305,22 +323,60 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 				if (bAllowFileEdit && ImGui::BeginPopupContextItem())
 				{
-					ImGui::MenuItem("Rename");
+					bool bMultipleItems = selectedFiles.Size() > 1;
+
+					if (!bMultipleItems)
+					{
+						bool bHasActions = 0;
+						if (auto* action = FAssetBrowserAction::GetAction(type, BA_OPENFILE))
+						{
+							bHasActions = true;
+							if (ImGui::MenuItem(("Open " + type->GetName()).c_str()))
+							{
+								FBADataBase data{ this, f };
+								action->Invoke(&data);
+							}
+						}
+						if (auto* action = FAssetBrowserAction::GetAction(type, BA_FILE_CONTEXTMENU); action)
+						{
+							bHasActions = true;
+							FBADataBase data{ this, f };
+							action->Invoke(&data);
+						}
+						if (bHasActions)
+							ImGui::Separator();
+
+						ImGui::MenuItem("Copy");
+						ImGui::MenuItem("Duplicate...");
+
+						if (ImGui::MenuItem("Copy Path"))
+							CEditorEngine::OSSetClipboardData(f->FullPath());
+
+						if (type && ImGui::MenuItem("Copy ID"))
+						{
+							auto* data = CAssetManager::GetAssetData(f->Path());
+							CEditorEngine::OSSetClipboardData(FString::ToString(data->id));
+						}
+
+						ImGui::MenuItem("Rename...");
+					}
+
 					if (ImGui::MenuItem("Delete"))
 					{
 						CChoiceDialog choice = CChoiceDialog("Are you sure?", "This will permantly delete " + FString::ToString(selectedFiles.Size()) + " file(s), this cannnot be undone.\nAre you sure you want to continue?", CChoiceDialog::OPTION_YES_NO);
 						int r = choice.Exec();
 						bDeleteSelected = r;
 					}
-					for (auto* action : FAssetBrowserAction::GetActions())
-					{
-						if (action->Type() == BA_FILE_CONTEXTMENU && action->TargetClass() == type)
-						{
-							ImGui::Separator();
 
-							FBADataBase data{ this, f };
-							action->Invoke(&data);
-						}
+					if (!bMultipleItems)
+					{
+						ImGui::Separator();
+
+						if (ImGui::MenuItem("Show in Explorer"))
+							CEditorEngine::OSOpenFileManager(f->Mod()->Path() + "/" + f->Dir()->GetPath());
+
+						if (ImGui::MenuItem("Open in External Program"))
+							CEditorEngine::OSOpenFile(f->FullPath());
 					}
 
 					//if (type == (FAssetClass*)CShaderSource::StaticClass())
@@ -340,14 +396,10 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 				if (ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(0) && bAllowFileEdit)
 				{
-					for (auto* action : FAssetBrowserAction::GetActions())
+					if (auto* action = FAssetBrowserAction::GetAction(type, BA_OPENFILE))
 					{
-						if (action->Type() == BA_OPENFILE && action->TargetClass() == type)
-						{
-							FBADataBase data{ this, f };
-							action->Invoke(&data);
-							break;
-						}
+						FBADataBase data{ this, f };
+						action->Invoke(&data);
 					}
 				}
 

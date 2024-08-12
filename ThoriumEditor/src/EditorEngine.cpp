@@ -1271,6 +1271,50 @@ void CEditorEngine::DrawSelectedSkeleton()
 	}
 }
 
+void CEditorEngine::OSOpenFileManager(const FString& path)
+{
+#if PLATFORM_WINDOWS
+	ShellExecuteA(NULL, "open", path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+#endif
+}
+
+void CEditorEngine::OSOpenFile(const FString& path)
+{
+#if PLATFORM_WINDOWS
+	ShellExecuteA(NULL, "open", path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
+#endif
+}
+
+void CEditorEngine::OSSetClipboardData(const FString& txt)
+{
+#if PLATFORM_WINDOWS
+	if (!OpenClipboard(NULL))
+		return;
+	EmptyClipboard();
+
+	HGLOBAL hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (txt.Size() + 1));
+	if (!hglbCopy)
+	{
+		CloseClipboard();
+		return;
+	}
+
+	LPTSTR lptstrCopy = (LPTSTR)GlobalLock(hglbCopy);
+	memcpy(lptstrCopy, txt.Data(), txt.Size());
+	lptstrCopy[txt.Size()] = (TCHAR)0;    // null character 
+	GlobalUnlock(hglbCopy);
+
+	SetClipboardData(CF_TEXT, hglbCopy);
+
+	CloseClipboard();
+#endif
+}
+
+FString CEditorEngine::OSGetClipboardData()
+{
+	return FString();
+}
+
 FEditorShortcut::FEditorShortcut(const FString& n, const FString& c, ImGuiKey k, bool shift /*= false*/, bool ctrl /*= false*/) : name(n), context(c), key(k), bShift(shift), bCtrl(ctrl)
 {
 	GetShortcuts().Add(this);

@@ -196,6 +196,13 @@ private:
 	void DrawSelectedSkeleton();
 
 public:
+	static void OSOpenFileManager(const FString& path);
+	static void OSOpenFile(const FString& path);
+
+	static void OSSetClipboardData(const FString& txt);
+	static FString OSGetClipboardData();
+
+public:
 	IFrameBuffer* sceneFrameBuffer;
 	//IDepthBuffer* sceneDepthBuffer;
 	int viewportWidth, viewportHeight;

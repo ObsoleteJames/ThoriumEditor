@@ -1,6 +1,8 @@
 
 #include "AssetBrowserWidget.h"
 #include "Rendering/Shader.h"
+#include "Misc/FileHelper.h"
+#include "EditorEngine.h"
 
 #include "ImGui/imgui.h"
 
@@ -15,11 +17,20 @@ public:
 
 	void Invoke(FBrowserActionData* data) override
 	{
-		if (ImGui::MenuItem("Compile"))
+		ImGui::BeginDisabled(!FFileHelper::FileExists(data->file->GetSdkPath()));
+		
+		if (ImGui::MenuItem("Compile Shader"))
 		{
 			auto shader = CAssetManager::GetAsset<CShaderSource>(data->file->Path());
 			shader->Compile();
 		}
+
+		if (ImGui::MenuItem("Edit Shader"))
+		{
+			CEditorEngine::OSOpenFile(data->file->GetSdkPath());
+		}
+
+		ImGui::EndDisabled();
 	}
 
 } static FShaderContextMenu_instance;

@@ -62,6 +62,8 @@ public:
 
 	inline static const FActionList& GetActions() { return actions; }
 
+	static FAssetBrowserAction* GetAction(FAssetClass* target, EBrowserActionType type = BA_INVALID);
+
 protected:
 	EBrowserActionType type;
 	FAssetClass* targetClass;

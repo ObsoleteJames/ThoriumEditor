@@ -41,7 +41,10 @@
 #include "Layers/EditorLog.h"
 #include "Layers/ProjectManager.h"
 
+#include <chrono>
+#include <thread>
 #include <map>
+#include <filesystem>
 
 #include "Platform/Windows/DirectX/DirectXInterface.h"
 #include "Platform/Windows/DirectX/DirectXFrameBuffer.h"
@@ -169,6 +172,9 @@ void CEditorEngine::Init()
 
 	InitEditorData();
 
+	FetchEditorAddons();
+	LoadEditorAddons();
+
 	Events::PostLevelChange.Bind(this, &CEditorEngine::OnLevelChange);
 
 	//if (bProjectLoaded)
@@ -231,6 +237,9 @@ int CEditorEngine::Run()
 		for (auto& l : layers)
 			if (l->bEnabled)
 				l->OnUpdate(deltaTime);
+
+		for (auto& addon : editorModules)
+			addon->Update();
 
 		updateTimer.Stop();
 		updateTime = updateTimer.GetMiliseconds();
@@ -322,6 +331,10 @@ void CEditorEngine::OnExit()
 	CONSOLE_LogInfo("CEngine", "Shutting down...");
 
 	SaveEditorConfig();
+
+	for (auto& addon : editorAddons)
+		if (addon.library)
+			UnloadEditorAddon(&addon);
 
 	ThoriumEditor::ClearThemeIcons();
 
@@ -461,6 +474,20 @@ void CEditorEngine::CompileProjectCode(int config)
 	ExecuteProgram("cmake --build \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\"");
 }
 
+void CEditorEngine::GenerateProjectSln()
+{
+	FString cmd = OSGetEnginePath(ENGINE_VERSION) + "/bin/win64/BuildTool.exe \"";
+	cmd += CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Build.cfg\" ";
+#if PLATFORM_WINDOWS
+	cmd += "-x64 ";
+#endif
+
+	ExecuteProgram(cmd);
+	using namespace std::chrono_literals;
+	std::this_thread::sleep_for(100ms);
+	ExecuteProgram("cmake -A x64 -B \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\" \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate\"");
+}
+
 void CEditorEngine::InitEditorData()
 {
 	TArray<FVertex> boxVerts = {
@@ -507,6 +534,131 @@ void CEditorEngine::InitEditorData()
 	gridMat = CreateObject<CMaterial>();
 	gridMat->SetShader("Tools");
 	gridMat->SetInt("vType", 1);
+}
+
+void CEditorEngine::FetchEditorAddons()
+{
+	FKeyValue addons(EngineContentPath() + "/../editor_addons/addons.cfg");
+	if (!addons.IsOpen())
+	{
+		CONSOLE_LogWarning("CEditorEngine", "Failed to open editor addons config file!");
+		return;
+	}
+
+	TArray<FString>* addonList = addons.GetArray("addons", true);
+	for (auto& id : *addonList)
+	{
+		FKeyValue cfg(EngineContentPath() + "/../editor_addons/" + id + "/addon.cfg");
+		if (!cfg.IsOpen())
+		{
+			CONSOLE_LogWarning("CEditorEngine", "Registered editor addon '" + id + "' does not exist or is invalid!");
+			continue;
+		}
+
+		FEditorAddon addon{};
+		addon.identity = id;
+		addon.name = cfg.GetValue("name")->Value;
+		addon.uid = cfg.GetValue("uid")->AsInt(-1);
+		editorAddons.Add(addon);
+	}
+}
+
+void CEditorEngine::LoadEditorAddons()
+{
+	FKeyValue addons(EngineContentPath() + "/../editor_addons/addons.cfg");
+	if (!addons.IsOpen())
+	{
+		CONSOLE_LogWarning("CEditorEngine", "Failed to open editor addons config file!");
+		return;
+	}
+
+	TArray<FString>* enabledList = addons.GetArray("enabled", true);
+	for (auto& addon : editorAddons)
+	{
+		auto it = enabledList->Find(addon.identity);
+		if (it != enabledList->end())
+		{
+			LoadEditorAddon(&addon);
+		}
+	}
+}
+
+FEditorAddon* CEditorEngine::GetEditorAddon(const FString& id)
+{
+	for (auto& addon : editorAddons)
+		if (addon.identity == id)
+			return &addon;
+	return nullptr;
+}
+
+void CEditorEngine::LoadEditorAddon(FEditorAddon* addon)
+{
+	TArray<FLibrary*> libs;
+
+	FString path = EngineContentPath() + "/../editor_addons/" + addon->identity;
+	FKeyValue cfg(path + "/addon.cfg");
+	if (!cfg.IsOpen())
+		return;
+
+	TArray<FString>* deps = cfg.GetArray("dependancies");
+	if (deps)
+	{
+		for (auto& d : *deps)
+		{
+			FLibrary* lib = CModuleManager::LoadFLibrary(d, path + "/bin/" + d);
+			if (!lib)
+			{
+				CONSOLE_LogError("CEditorEngine", "Failed to load depandancy '" + d + "' for editor addon '" + addon->name + "'!");
+				continue;
+			}
+
+			libs.Add(lib);
+		}
+	}
+
+	FLibrary* addonLib = CModuleManager::LoadFLibrary(addon->identity, path + "/bin/" + addon->identity);
+	if (!addonLib)
+	{
+		CONSOLE_LogError("CEditorEngine", "Failed to load editor addon '" + addon->name + "'!");
+		return;
+	}
+
+	auto moduleFunc = (FEditorModule*(*)(void))addonLib->GetFunctionPtr("GetAddonModule");
+	if (!moduleFunc)
+	{
+		CONSOLE_LogError("CEditorEngine", "Invalid editor addon! library is missing function 'GetAddonModule'!");
+
+		CModuleManager::UnloadLibrary(addonLib);
+		for (auto* l : libs)
+			CModuleManager::UnloadLibrary(l);
+		return;
+	}
+
+	addon->library = addonLib;
+	addon->module = moduleFunc();
+
+	addon->module->libs = libs;
+	addon->module->Init();
+
+	editorModules.Add(addon->module);
+}
+
+void CEditorEngine::UnloadEditorAddon(FEditorAddon* addon)
+{
+	TArray<FLibrary*> libs = addon->module->libs;
+
+	if (addon->module)
+	{
+		addon->module->Shutdown();
+		editorModules.Erase(editorModules.Find(addon->module));
+		addon->module = nullptr;
+	}
+
+	CModuleManager::UnloadLibrary(addon->library);
+	addon->library = nullptr;
+
+	for (auto* l : libs)
+		CModuleManager::UnloadLibrary(l);
 }
 
 void CEditorEngine::UpdateTitle()

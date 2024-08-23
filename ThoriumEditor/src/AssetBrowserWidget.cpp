@@ -251,6 +251,19 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 					SetDir(mod, d->GetPath());
 				}
 				ImGui::PopStyleColor();
+
+				if (bAllowFileEdit && ImGui::BeginPopupContextItem())
+				{
+					ImGui::MenuItem("Rename...");
+					ImGui::MenuItem("Delete");
+
+					ImGui::Separator();
+
+					if (ImGui::MenuItem("Show in Explorer"))
+						CEditorEngine::OSOpenFileManager(curMod->Path() + "/" + d->GetPath());
+
+					ImGui::EndPopup();
+				}
 				
 				DoMoveFile(d);
 

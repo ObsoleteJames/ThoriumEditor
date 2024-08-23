@@ -121,6 +121,9 @@ public:
 
 	int iconsSize = 2;
 
+	FFile* renamingFile = nullptr;
+	FDirectory* renamingDir = nullptr;
+
 	FString newFileStr;
 	FAssetClass* newFileType = nullptr;
 	bool bCreatingFile = false;

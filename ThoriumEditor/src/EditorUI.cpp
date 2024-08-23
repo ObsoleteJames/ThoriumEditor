@@ -526,17 +526,17 @@ void CEditorEngine::SetupMenu()
 	//menu->OnClicked = []() { menuAction = MenuAction_SaveSceneAs; };
 	RegisterMenu(menu, "File");
 
-	menu = new CEditorMenu("Compile Project Code", "Build", FString(), false);
-	menu->OnClicked = []() {
-#if _DEBUG
-		gEditorEngine()->CompileProjectCode(2);
-#elif _DEVELOPMENT
-		gEditorEngine()->CompileProjectCode(1);
-#elif _RELEASE
-		gEditorEngine()->CompileProjectCode(0);
-#endif
-	};
-	RegisterMenu(menu, "File");
+//	menu = new CEditorMenu("Compile Project Code", "Build", FString(), false);
+//	menu->OnClicked = []() {
+//#if _DEBUG
+//		gEditorEngine()->CompileProjectCode(2);
+//#elif _DEVELOPMENT
+//		gEditorEngine()->CompileProjectCode(1);
+//#elif _RELEASE
+//		gEditorEngine()->CompileProjectCode(0);
+//#endif
+//	};
+//	RegisterMenu(menu, "File");
 
 	menu = new CEditorMenu("Quit", false);
 	menu->OnClicked = []() { gEditorEngine()->Exit(); };
@@ -561,6 +561,27 @@ void CEditorEngine::SetupMenu()
 
 	RegisterMenu(new CEditorMenu("Tools"));
 
+#if PLATFORM_WINDOWS
+	menu = new CEditorMenu("Generate Visual Studio Project", false);
+	menu->OnClicked = []() { gEditorEngine()->GenerateProjectSln(); };
+	RegisterMenu(menu, "Code");
+	menu = new CEditorMenu("Open Visual Studio Project", false);
+	menu->OnClicked = []() { CEditorEngine::OSOpenFile(CFileSystem::GetCurrentPath() + "/.project/" + gEditorEngine()->ActiveGame().name + "/Intermediate/Build/" + gEditorEngine()->ActiveGame().name + ".sln"); };
+	RegisterMenu(menu, "Code");
+
+	menu = new CEditorMenu("Compile Project Code", false);
+	menu->OnClicked = []() {
+#if CONFIG_DEBUG
+		gEditorEngine()->CompileProjectCode(2);
+#elif CONFIG_DEVELOPMENT
+		gEditorEngine()->CompileProjectCode(1);
+#else
+		gEditorEngine()->CompileProjectCode(0);
+#endif
+	};
+	RegisterMenu(menu, "Code");
+#endif
+
 	// --- VIEW ---
 	menu = new CEditorMenu("Outliner", true);
 	//menu->OnClicked = [=]() { gEditorEngine()->bImGuiDemo = menu->Checked(); };
@@ -583,12 +604,11 @@ void CEditorEngine::SetupMenu()
 	RegisterMenu(menu, "Debug");
 	menuStatistics = menu;
 
+	// --- HELP ---
 	menu = new CEditorMenu("Documentation", false);
-	//menu->OnClicked = []() { gEditorEngine()->Undo(); };
 	RegisterMenu(menu, "Help");
 
 	menu = new CEditorMenu("About", false);
-	//menu->OnClicked = []() { gEditorEngine()->Undo(); };
 	RegisterMenu(menu, "Help");
 
 	//RegisterMenu(new CEditorMenu("Debug"));

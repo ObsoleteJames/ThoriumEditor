@@ -8,6 +8,7 @@
 #include "CameraController.h"
 #include "Layers/EditorLog.h"
 #include "SceneOutlinerData.h"
+#include "EditorAddon.h"
 
 #include "Rendering/Framebuffer.h"
 
@@ -113,6 +114,7 @@ public:
 	void SaveEditorConfig();
 
 	void CompileProjectCode(int config = 0);
+	void GenerateProjectSln();
 
 	void RegisterProject(const FProject& proj);
 
@@ -144,6 +146,16 @@ private:
 	void InitEditorData();
 	void SetupMenu();
 	void SetupEditorDocking();
+
+	void FetchEditorAddons();
+	void LoadEditorAddons();
+
+	FEditorAddon* GetEditorAddon(const FString& id);
+
+	void LoadEditorAddon(FEditorAddon* addon);
+	void UnloadEditorAddon(FEditorAddon* addon);
+
+	inline const TArray<FEditorAddon>& GetEditorAddons() const { return editorAddons; }
 
 	void UpdateTitle();
 
@@ -215,6 +227,9 @@ public:
 
 	TArray<TObjectPtr<CEntity>> selectedEntities;
 	TObjectPtr<CObject> selectedObject;
+
+	TArray<FEditorAddon> editorAddons;
+	TArray<FEditorModule*> editorModules;
 
 	union
 	{

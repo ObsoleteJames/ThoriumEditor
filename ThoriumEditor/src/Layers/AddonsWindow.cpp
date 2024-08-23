@@ -33,6 +33,8 @@ void CAddonsWindow::OnUIRender()
 
 		if (!editingAddon)
 		{
+			ImGui::Button("Create Addon");
+
 			if (ImGui::BeginTable("addonsTable", 1, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY))
 			{
 				if (ImGui::TableTreeHeader("Core Addons", ImGuiTreeNodeFlags_DefaultOpen))
@@ -60,6 +62,8 @@ void CAddonsWindow::OnUIRender()
 							}
 						}
 
+						ImGui::BeginDisabled(!gEngine->IsProjectLoaded());
+
 						ImVec2 pos = ImGui::GetCursorScreenPos();
 						if (ImGui::Checkbox(("Enabled##_" + addon.identity).c_str(), &bEnabled))
 						{
@@ -79,9 +83,12 @@ void CAddonsWindow::OnUIRender()
 							gEditorEngine()->SaveProjectConfig();
 						}
 
+						ImGui::EndDisabled();
+
 						ImGui::SetCursorScreenPos(pos + ImVec2(ImGui::GetContentRegionAvail().x - 30, 0));
 
-						ImGui::Button(("Edit##" + addon.identity).c_str());
+						if (ImGui::Button(("Edit##" + addon.identity).c_str()))
+							editingAddon = &addon;
 					}
 					ImGui::TreePop();
 				}
@@ -127,7 +134,8 @@ void CAddonsWindow::OnUIRender()
 
 						ImGui::SetCursorScreenPos(pos + ImVec2(ImGui::GetContentRegionAvail().x - 30, 0));
 
-						ImGui::Button(("Edit##" + addon.identity).c_str());
+						if (ImGui::Button(("Edit##" + addon.identity).c_str()))
+							editingAddon = &addon;
 					}
 					ImGui::TreePop();
 				}

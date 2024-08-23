@@ -46,7 +46,7 @@ public:
 
 	void Invoke(FBrowserActionData* data) override
 	{
-		if (ImGui::MenuItem("CreateShader"))
+		if (ImGui::MenuItem("Create Shader"))
 		{
 			data->browser->PrepareNewFile(&FShaderCreateMenu::DoCreate, (FAssetClass*)CShaderSource::StaticClass());
 		}

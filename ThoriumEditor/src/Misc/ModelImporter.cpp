@@ -169,7 +169,7 @@ public:
 						ImGui::TableNextColumn();
 						ImGui::Text("Output folder");
 						ImGui::TableNextColumn();
-						ImGui::InputText("##animsOut", &animSettings.outputFolder);
+						ImGui::InputText("##animsOut", &animSettings.path);
 
 						ImGui::EndDisabled(); // !bImportAnimations
 
@@ -226,7 +226,7 @@ public:
 						ImGui::TableNextColumn();
 						ImGui::Text("Output folder");
 						ImGui::TableNextColumn();
-						ImGui::InputText("##animsOut", &animSettings.outputFolder);
+						ImGui::InputText("##animsOut", &animSettings.path);
 
 						ImGui::TreePop();
 					}

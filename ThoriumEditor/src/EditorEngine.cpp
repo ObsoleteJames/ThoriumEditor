@@ -30,7 +30,7 @@
 #include "AssetBrowserWidget.h"
 #include "ClassSelectorPopup.h"
 #include "Debug/ObjectDebugger.h"
-#include "Layers/PropertyEditor.h"
+#include "Layers/PropertiesWidget.h"
 #include "Layers/ConsoleWidget.h"
 #include "Layers/InputOutputWidget.h"
 #include "Layers/ProjectSettings.h"
@@ -41,10 +41,13 @@
 #include "Layers/EditorLog.h"
 #include "Layers/ProjectManager.h"
 
+#include "StringExpression.h"
+
 #include <chrono>
 #include <thread>
 #include <map>
 #include <filesystem>
+#include <fstream>
 
 #include "Platform/Windows/DirectX/DirectXInterface.h"
 #include "Platform/Windows/DirectX/DirectXFrameBuffer.h"
@@ -165,7 +168,7 @@ void CEditorEngine::Init()
 	gizmoMode = ImGuizmo::TRANSLATE;
 
 	ThoriumEditor::LoadThemes();
-	ThoriumEditor::SetTheme("Default");
+	ThoriumEditor::SetTheme(editorCfg.theme);
 
 	if (!gameInstance)
 		SetGameInstance<CGameInstance>();
@@ -182,7 +185,8 @@ void CEditorEngine::Init()
 	//	assetBrowser->SetDir(activeGame.mod->Name(), FString());
 	//	LoadWorld(ToFString(activeGame.startupScene));
 	//}
-	bOpenProj = !bProjectLoaded;
+	
+	//bOpenProj = !bProjectLoaded; // Uncomment this to make the project window open at startup
 
 	//uiMat = CreateObject<CMaterial>();
 	//uiMat->SetShader("")
@@ -275,9 +279,10 @@ int CEditorEngine::Run()
 		gWorld->renderScene->SetFrameBuffer(sceneFrameBuffer);
 		//gWorld->renderScene->SetDepthBuffer(sceneDepthBuffer);
 
-		if (!bIsPlaying)
+		if (!bIsPlaying && !bGameView)
 		{
-			DrawSelectionDebug();
+			if (bSelectionBoundingBox)
+				DrawSelectionDebug();
 
 			FDrawMeshCmd cmd;
 			cmd.material = gridMat;
@@ -297,6 +302,10 @@ int CEditorEngine::Run()
 #else
 		gRenderer->Render();
 #endif
+
+		if (!bGameView)
+			DoEditorRender();
+
 		updateTimer.Stop();
 		renderTime = updateTimer.GetMiliseconds();
 
@@ -349,10 +358,14 @@ void CEditorEngine::OnExit()
 	gameInstance->Delete();
 	gameInstance = nullptr;
 
+	(*(TArray<TObjectPtr<CShaderSource>>*) & CShaderSource::GetAllShaders()).Clear();
+
 	gRenderer->Delete();
 	delete gGHI;
 
 	CWindow::Shutdown();
+
+	CFileSystem::UnmountMod(engineMod);
 
 	CAssetManager::Shutdown();
 	CModuleManager::Cleanup();
@@ -371,6 +384,59 @@ bool CEditorEngine::LoadProject(const FString& path)
 	return r;
 }
 
+void CEditorEngine::MakeProject(const FProject& project)
+{
+	const FString& path = project.dir;
+
+	std::filesystem::create_directories((path + "/.project").c_str());
+	std::filesystem::create_directories((path + "/config").c_str());
+	std::filesystem::create_directories((path + "/" + project.game).c_str());
+	std::filesystem::create_directories((path + "/" + project.game + "/config").c_str());
+	std::filesystem::create_directories((path + "/" + project.game + "/bin").c_str());
+
+	std::filesystem::create_directories((path + "/.project/" + project.game + "/sdk_content").c_str());
+	std::filesystem::create_directories((path + "/.project/" + project.game + "/src").c_str());
+	std::filesystem::create_directories((path + "/.project/" + project.game + "/bin").c_str());
+
+	// project config file
+	{
+		FKeyValue cfg(path + "/config/project.cfg");
+
+		cfg.SetValue("name", project.name);
+		cfg.SetValue("displayName", project.displayName);
+		cfg.SetValue("author", project.author);
+		cfg.SetValue("game", project.game);
+
+		cfg.SetValue("engine_version", ENGINE_VERSION);
+		cfg.SetValue("version", "1.0.0");
+		cfg.SetValue("hasSdk", "false");
+		cfg.SetValue("hasEngineContent", "false");
+
+		cfg.Save();
+	}
+
+	// gameinfo file
+	{
+		FKeyValue cfg(path + "/" + project.game + "/config/gameinfo.cfg");
+
+		cfg.SetValue("title", project.displayName);
+		cfg.SetValue("version", "1.0.0");
+		cfg.SetValue("scene", "Maps/Basic.thasset");
+		cfg.SetValue("gameinstance", "CGameInstance");
+		cfg.SetValue("inputmanager", "CInputManager");
+
+		cfg.Save();
+	}
+
+	// thproj file
+	{
+		FKeyValue cfg(path + "/.project/" + project.game + ".thproj");
+
+		cfg.SetValue("engine_version", ENGINE_VERSION);
+		cfg.Save();
+	}
+}
+
 void CEditorEngine::LoadEditorConfig()
 {
 	FKeyValue kv(GetEditorConfigPath() + "/Editor.cfg");
@@ -385,6 +451,7 @@ void CEditorEngine::LoadEditorConfig()
 	editorCfg.wndWidth = kv.GetValue("wndWidth")->AsInt(1920);
 	editorCfg.wndHeight = kv.GetValue("wndHeight")->AsInt(1080);
 	editorCfg.wndMode = kv.GetValue("wndMode")->AsInt(1);
+	editorCfg.theme = *kv.GetValue("theme");
 
 	menuViewOutliner->bChecked = kv.GetValue("view_outliner")->AsBool(true);
 	menuAssetBrowser->bChecked = kv.GetValue("view_assetbrowser")->AsBool(true);
@@ -392,6 +459,9 @@ void CEditorEngine::LoadEditorConfig()
 	
 	editorCamera->fov = kv.GetValue("camera_fov")->AsFloat(90.f);
 	camController->cameraSpeed = kv.GetValue("camera_speed")->AsInt(4);
+
+	bSelectionBoundingBox = kv.GetValue("show_selection_boundingbox")->AsBool(true);
+	bSelectionOverlay = kv.GetValue("show_selection_overlay")->AsBool(true);
 
 	CLayer::LoadConfig(kv);
 
@@ -421,6 +491,7 @@ void CEditorEngine::SaveEditorConfig()
 	kv.SetValue("wndWidth", FString::ToString(editorCfg.wndWidth));
 	kv.SetValue("wndHeight", FString::ToString(editorCfg.wndHeight));
 	kv.SetValue("wndMode", FString::ToString((int)gameWindow->GetWindowMode()));
+	kv.SetValue("theme", ThoriumEditor::Theme().name);
 
 	kv.SetValue("view_outliner", FString::ToString((int)menuViewOutliner->bChecked));
 	kv.SetValue("view_assetbrowser", FString::ToString((int)menuAssetBrowser->bChecked));
@@ -428,6 +499,9 @@ void CEditorEngine::SaveEditorConfig()
 
 	kv.SetValue("camera_fov", FString::ToString((int)editorCamera->fov));
 	kv.SetValue("camera_speed", FString::ToString((int)camController->cameraSpeed));
+
+	kv.SetValue("show_selection_boundingbox", FString::ToString((int)bSelectionBoundingBox));
+	kv.SetValue("show_selection_overlay", FString::ToString((int)bSelectionOverlay));
 
 	CLayer::SaveConfig(kv);
 
@@ -486,6 +560,65 @@ void CEditorEngine::GenerateProjectSln()
 	using namespace std::chrono_literals;
 	std::this_thread::sleep_for(100ms);
 	ExecuteProgram("cmake -A x64 -B \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\" \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate\"");
+}
+
+void CEditorEngine::GenerateCppClass(const FString& path, const FString& className, const FString& baseClass)
+{
+	FFile* headerTemplate = CFileSystem::FindFile("editor/CppBaseFiles/Class.h");
+	FFile* cppTemplate = CFileSystem::FindFile("editor/CppBaseFiles/Class.cpp");
+
+	if (!headerTemplate || !cppTemplate)
+	{
+		CONSOLE_LogError("CEditorEngine", "Failed to create cpp class, missing template files!");
+		return;
+	}
+
+	FStringExpression strExp;
+	strExp.SetExpressionValue("CLASS_NAME", className);
+	strExp.SetExpressionValue("BASE_CLASS", baseClass);
+	strExp.SetExpressionValue("BASE_CLASS_INCLUDE", className + ".h");
+	strExp.SetExpressionValue("CLASS_HEADER_INCLUDE", path + ".h");
+
+	FString outFile;
+	{
+		std::ifstream stream(headerTemplate->FullPath().c_str());
+		if (!stream.is_open())
+			return;
+
+		std::string line;
+		while (std::getline(stream, line))
+			outFile += strExp.ParseString(line.c_str());
+
+		stream.close();
+	}
+
+	FString outPath = projectConfig.dir + "/.project/" + projectConfig.game + "/src/" + path + ".h";
+	std::ofstream stream(outPath.c_str());
+	stream.write(outFile.c_str(), outFile.Size());
+	stream.close();
+
+	outFile.Clear();
+	{
+		std::ifstream stream(cppTemplate->FullPath().c_str());
+		if (!stream.is_open())
+			return;
+
+		std::string line;
+		while (std::getline(stream, line))
+			outFile += strExp.ParseString(line.c_str());
+
+		stream.close();
+	}
+
+	outPath = projectConfig.dir + "/.project/" + projectConfig.game + "/src/" + path + ".cpp";
+	stream.open(outPath.c_str());
+	stream.write(outFile.c_str(), outFile.Size());
+	stream.close();
+
+	using namespace std::chrono_literals;
+	std::this_thread::sleep_for(10ms);
+
+	GenerateProjectSln();
 }
 
 void CEditorEngine::InitEditorData()
@@ -768,6 +901,8 @@ bool CEditorEngine::SaveScene()
 		sdkStream << &camPos << &camRot;
 		sdkStream.Close();
 	}
+
+	SetStatusHighlight("Saved scene!");
 	return true;
 }
 
@@ -1421,6 +1556,25 @@ void CEditorEngine::DrawSelectedSkeleton()
 			}
 		}
 	}
+}
+
+void CEditorEngine::SetStatus(const FString& text)
+{
+	statusType = STATUS_INFO;
+	curStatus = text;
+}
+
+void CEditorEngine::SetStatusHighlight(const FString& text)
+{
+	statusType = STATUS_HIGHLIGHT;
+	curStatus = text;
+	statusTimer = 1.f;
+}
+
+void CEditorEngine::SetStatusError(const FString& text)
+{
+	statusType = STATUS_ERROR;
+	curStatus = text;
 }
 
 void CEditorEngine::OSOpenFileManager(const FString& path)

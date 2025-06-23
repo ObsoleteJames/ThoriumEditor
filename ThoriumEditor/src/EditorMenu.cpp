@@ -112,7 +112,7 @@ void CEditorMenu::RenderChildren()
 			if (!bEmpty)
 				ImGui::PopStyleVar();
 
-			ImColor background = ImGui::GetStyle().Colors[ImGuiCol_MenuBarBg];
+			ImColor background = ImGui::GetStyle().Colors[ImGuiCol_PopupBg];
 
 			ImVec2 textSize = ImGui::CalcTextSize(c->category.c_str());
 

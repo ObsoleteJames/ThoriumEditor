@@ -98,7 +98,7 @@ int main(int argc, char** argv)
 #endif
 
 #ifdef _WIN32
-	FCommandLine::Parse(lpCmdLine);
+	FCommandLine::Parse(lpCmdLine, false);
 #else
 	FCommandLine::Parse(argv, argc);
 #endif
@@ -112,6 +112,7 @@ int main(int argc, char** argv)
 	gEngine = new CEditorEngine();
 	gEngine->Init();
 
+#if 0
 	try {
 		gIsMainGaurded = true;
 		gEngine->LoadProject(project + "/..");
@@ -128,6 +129,10 @@ int main(int argc, char** argv)
 		gEngine->SaveConsoleLog();
 		return 1;
 	}
+#else
+	gEngine->LoadProject(project + "/..");
+	exitCode = gEngine->Run();
+#endif
 
 	return exitCode;
 }

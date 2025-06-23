@@ -8,6 +8,7 @@
 #include "Rendering/Shader.h"
 #include "EditorEngine.h"
 #include "Platform/Windows/DirectX/DirectXTexture.h"
+#include "Assets/GenericAsset.h"
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "ImGui/imgui.h"
@@ -16,6 +17,7 @@
 #include "EditorWidgets.h"
 #include "ThemeManager.h"
 #include "Dialogs/ChoiceDialog.h"
+#include "Dialogs/SelectTypeDialog.h"
 
 #define TEX_VIEW(tex) ((DirectXTexture2D*)tex)->view
 
@@ -56,6 +58,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 	auto& mods = CFileSystem::GetMods();
 
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_WindowBg]);
 	if (ImGui::BeginChild("assetBrowserTree", ImVec2(sizeL, height), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
 	{
 		{
@@ -93,7 +96,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 			
 			ImVec2 cursorPos = ImGui::GetCursorScreenPos();
 
-			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;
+			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanFullWidth;
 			if (dir.IsEmpty() && m->Name() == mod)
 				flags |= ImGuiTreeNodeFlags_Selected;
 
@@ -170,12 +173,15 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 		}
 	}
 	ImGui::EndChild();
+	ImGui::PopStyleColor();
 
 	ImGui::SameLine();
 
-	if (ImGui::BeginChild("assetBrowserView", ImVec2(sizeR,	height), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
+	ImVec2 cursor = ImGui::GetCursorScreenPos();
+
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_WindowBg]);
+	if (ImGui::BeginChild("assetBrowserBar", ImVec2(sizeR - 8, 38), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
 	{
-		bool bHovered = ImGui::IsItemHovered();
 		if (ImGui::Button("<##_browserBack") || (ImGui::IsKeyPressed(ImGuiKey_MouseX1)))
 			Back();
 
@@ -190,6 +196,87 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 			Root();
 
 		ImGui::SameLine();
+
+		ImVec2 contentSize = ImGui::GetContentRegionAvail();
+		contentSize.x -= 130;
+		ImGui::SetNextItemWidth(contentSize.x * 0.8f);
+
+		if (ImGui::InputText("##_dirInput", &dirInput))
+		{
+			FString _d;
+			FString _m;
+
+			if (ExtractPath(ToFString(dirInput), _m, _d))
+			{
+				FMod* m = CFileSystem::FindMod(_m);
+				if (m)
+				{
+					mod = m->Name();
+
+					if (_d.IsEmpty() || m->FindDirectory(_d))
+					{
+						dir = _d;
+					}
+				}
+			}
+		}
+
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(contentSize.x * 0.2f);
+
+		ImVec2 searchPos = ImGui::GetCursorScreenPos();
+
+		// TODO: implement proper search.
+		ImGui::InputText("##_searchInput", &search);
+
+		if (search.IsEmpty())
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.2f));
+			ImGui::RenderText(searchPos + ImVec2(6, 4), "Search...");
+			ImGui::PopStyleColor();
+		}
+
+		if (bAllowFileEdit)
+		{
+			ImGui::SameLine();
+			if (ImGui::Button("Import"))
+			{
+				ImportAsset();
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Refresh"))
+			{
+				CFileSystem::Refresh();
+			}
+		}
+	}
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
+
+	ImGui::SetCursorScreenPos(cursor + ImVec2(0, 32 + 8));
+
+	if (ImGui::BeginChild("assetBrowserView", ImVec2(sizeR - 8, height), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
+	{
+		bool bHovered = ImGui::IsItemHovered();
+		/*if (ImGui::Button("<##_browserBack") || (ImGui::IsKeyPressed(ImGuiKey_MouseX1)))
+			Back();
+
+		ImGui::SameLine();
+
+		if (ImGui::Button(">##_browserForward"))
+			Forward();
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("^##_browserRoot"))
+			Root();
+
+		ImGui::SameLine();
+
+		ImVec2 contentSize = ImGui::GetContentRegionAvail();
+		contentSize.x -= 130;
+		ImGui::SetNextItemWidth(contentSize.x * 0.8f);
 
 		if (ImGui::InputText("##_dirInput", &dirInput))
 		{
@@ -211,6 +298,21 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 			}
 		}
 
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(contentSize.x * 0.2f);
+
+		ImVec2 searchPos = ImGui::GetCursorScreenPos();
+
+		// TODO: implement proper search.
+		ImGui::InputText("##_searchInput", &search);
+
+		if (search.IsEmpty())
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.2f));
+			ImGui::RenderText(searchPos + ImVec2(6, 4), "Search...");
+			ImGui::PopStyleColor();
+		}
+
 		if (bAllowFileEdit)
 		{
 			ImGui::SameLine();
@@ -218,7 +320,15 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 			{
 				ImportAsset();
 			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Refresh"))
+			{
+				CFileSystem::Refresh();
+			}
 		}
+
+		ImGui::Separator();*/
 
 		ImVec2 itemSize = ImVec2(48 + (48 * iconsSize) / 2, 80 + (80 * iconsSize) / 2);
 		ImVec2 contentSize = ImGui::GetContentRegionAvail();
@@ -243,16 +353,34 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 			for (auto& d : curDir->GetSubDirectories())
 			{
+				if (!search.IsEmpty() && d->GetName().ToLowerCase().Find(search.ToLowerCase()) == -1)
+					continue;
+
+				bool bSelected = IsFolderSelected(d);
+
 				ImGui::TableNextColumn();
 				//if (ImGui::Selectable(ToFString(d->GetName()).c_str(), false, ImGuiSelectableFlags_None, ImVec2(itemSize.x, itemSize.x)))
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-				if (ImGui::ImageButtonEx(GImGui->CurrentWindow->GetID(ToFString("##_" + d->GetPath()).c_str()), ((DirectXTexture2D*)folderImg)->view, ImVec2(itemSize.x, itemSize.x), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), ImVec4(1, 1, 1, 1), ImGuiButtonFlags_PressedOnDoubleClick))
+				ImGui::PushStyleColor(ImGuiCol_Button, bSelected ? ImGui::GetStyle().Colors[ImGuiCol_ButtonActive] : ImVec4(0, 0, 0, 0));
+				if (ImGui::ImageButtonEx(GImGui->CurrentWindow->GetID(ToFString("##_" + d->GetPath()).c_str()), ((DirectXTexture2D*)folderImg)->view, ImVec2(itemSize.x, itemSize.x), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), ImVec4(1, 1, 1, 1), 0 /*ImGuiButtonFlags_PressedOnDoubleClick*/))
 				{
-					SetDir(mod, d->GetPath());
+					//SetDir(mod, d->GetPath());
+
+					if (ImGui::IsKeyDown(ImGuiKey_ModCtrl))
+					{
+						if (!bSelected)
+							AddSelectedFolder(d);
+						else
+							RemoveSelectedFolder(d);
+					}
+					else
+						SetSelectedFolder(d);
 				}
 				ImGui::PopStyleColor();
 
-				if (bAllowFileEdit && ImGui::BeginPopupContextItem())
+				if (ImGui::IsMouseDoubleClicked(0) && ImGui::IsItemHovered())
+					SetDir(mod, d->GetPath());
+
+				if (bAllowFolderEdit && ImGui::BeginPopupContextItem())
 				{
 					ImGui::MenuItem("Rename...");
 					ImGui::MenuItem("Delete");
@@ -269,8 +397,8 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 				ImGui::Text(ToFString(d->GetName()).c_str());
 
-				if (ImGui::IsItemClicked())
-					SetSelectedFile(nullptr);
+				//if (ImGui::IsItemClicked())
+				//	SetSelectedFile(nullptr);
 			}
 
 			if (bCreatingFolder)
@@ -306,13 +434,17 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 				if (viewFilter && viewFilter != type)
 					continue;
 
+				// TODO: highlight text
+				if (!search.IsEmpty() && f->Name().ToLowerCase().Find(search.ToLowerCase()) == -1)
+					continue;
+
 				ImGui::TableNextColumn();
 				ImVec2 cursor = ImGui::GetCursorScreenPos();
 				
 				bool bSelected = IsFileSelected(f);
 
 				if (bSelected)
-					ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonHovered]);
+					ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
 
 				if (ImGui::ButtonEx((ToFString(f->Name()) + "##_" + FString::ToString((SizeType)f)).c_str(), itemSize))
 				{
@@ -340,6 +472,18 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 					if (!bMultipleItems)
 					{
+						if (!type)
+						{
+							if (ImGui::MenuItem("Convert to asset..."))
+							{
+								CSelectClassDialog dialog("Select Asset Type", CGenericAsset::StaticClass());
+								if (dialog.Exec())
+									CAssetManager::ConvertToAsset(f, (FAssetClass*)dialog.Selected());
+							}
+
+							ImGui::Separator();
+						}
+
 						bool bHasActions = 0;
 						if (auto* action = FAssetBrowserAction::GetAction(type, BA_OPENFILE))
 						{
@@ -525,19 +669,25 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 			ImGui::EndTable();
 		}
 
-		if (bAllowFileEdit && ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+		// clear selection.
+		if (ImGui::IsMouseReleased(0) && ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup) && !ImGui::IsAnyItemHovered())
+			SetSelectedFile(0);
+
+		if (bAllowFolderEdit && ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
 		{
 			if (ImGui::MenuItem("New Folder"))
 				PrepareNewFolder();
 
-			ImGui::Separator();
-			for (auto* action : FAssetBrowserAction::GetActions())
+			if (bAllowFileEdit)
 			{
-				if (action->Type() == BA_WINDOW_CONTEXTMENU)
+				ImGui::Separator();
+				for (auto* action : FAssetBrowserAction::GetActions())
 				{
-
-					FBAWindowContext data{ this, nullptr, mod, dir };
-					action->Invoke(&data);
+					if (action->Type() == BA_WINDOW_CONTEXTMENU)
+					{
+						FBAWindowContext data{ this, nullptr, mod, dir };
+						action->Invoke(&data);
+					}
 				}
 			}
 
@@ -611,7 +761,7 @@ void CAssetBrowserWidget::DrawDirTree(FDirectory* _dir, FDirectory* parent, FMod
 	bool bHasChildren = _dir->GetSubDirectories().Size() > 0;
 	bool bSelected = _mod->Name() == mod && _dir->GetPath() == dir;
 
-	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanFullWidth;
 	if (!bHasChildren)
 		flags |= ImGuiTreeNodeFlags_Leaf;
 	if (bSelected)
@@ -645,6 +795,7 @@ void CAssetBrowserWidget::DrawDirTree(FDirectory* _dir, FDirectory* parent, FMod
 
 void CAssetBrowserWidget::SetSelectedFile(FFile* file)
 {
+	selectedFolders.Clear();
 	selectedFiles.Clear();
 	if (file)
 		selectedFiles.Add(file);
@@ -666,6 +817,34 @@ bool CAssetBrowserWidget::IsFileSelected(FFile* file)
 {
 	auto it = selectedFiles.Find(file);
 	if (it != selectedFiles.end())
+		return true;
+	return false;
+}
+
+void CAssetBrowserWidget::SetSelectedFolder(FDirectory* file)
+{
+	selectedFiles.Clear();
+	selectedFolders.Clear();
+	if (file)
+		selectedFolders.Add(file);
+}
+
+void CAssetBrowserWidget::AddSelectedFolder(FDirectory* file)
+{
+	selectedFolders.Add(file);
+}
+
+void CAssetBrowserWidget::RemoveSelectedFolder(FDirectory* file)
+{
+	auto it = selectedFolders.Find(file);
+	if (it != selectedFolders.end())
+		selectedFolders.Erase(it);
+}
+
+bool CAssetBrowserWidget::IsFolderSelected(FDirectory* file)
+{
+	auto it = selectedFolders.Find(file);
+	if (it != selectedFolders.end())
 		return true;
 	return false;
 }
@@ -698,7 +877,7 @@ void CAssetBrowserWidget::PrepareNewFile(void(*onFinishFun)(const FString& outPa
 
 void CAssetBrowserWidget::PrepareNewFolder()
 {
-	if (!bAllowFileEdit || bCreatingFolder || bCreatingFile)
+	if (!bAllowFolderEdit || bCreatingFolder || bCreatingFile)
 		return;
 
 	newFileStr = "New Folder";
@@ -707,7 +886,11 @@ void CAssetBrowserWidget::PrepareNewFolder()
 
 void CAssetBrowserWidget::ImportAsset()
 {
-	FString filter;
+	FString filter = "All Files";
+	filter += '\0';
+	filter += "*.*";
+	filter += '\0';
+
 	TArray<FAssetClass*> importableClasses;
 	for (auto* m : CModuleManager::GetModules())
 	{
@@ -737,44 +920,47 @@ void CAssetBrowserWidget::ImportAsset()
 		}
 	}
 
-	FString file = CEngine::OpenFileDialog(filter);
-	if (file.IsEmpty())
+	TArray<FString> files = CEngine::OpenFilesDialog(filter);
+	if (files.Size() == 0)
 		return;
 
-	FString ext = file;
-	ext.Erase(ext.begin(), ext.begin() + ext.FindLastOf('.'));
-
-	FAssetClass* targetClass = nullptr;
-
-	for (auto* c : importableClasses)
+	for (auto& file : files)
 	{
-		TArray<FString> imports = c->ImportableAs().Split(';');
+		FString ext = file;
+		ext.Erase(ext.begin(), ext.begin() + ext.FindLastOf('.'));
 
-		for (auto& i : imports)
+		FAssetClass* targetClass = nullptr;
+
+		for (auto* c : importableClasses)
 		{
-			if (i == ext)
+			TArray<FString> imports = c->ImportableAs().Split(';');
+
+			for (auto& i : imports)
 			{
-				targetClass = c;
-				goto foundClass;
+				if (i == ext)
+				{
+					targetClass = c;
+					goto foundClass;
+				}
 			}
 		}
-	}
 
-foundClass:
-	if (!targetClass)
-		return;
-	
-	FString fileName = file;
-	fileName.Erase(fileName.begin(), fileName.begin() + fileName.FindLastOf("\\/") + 1);
-	fileName.Erase(fileName.begin() + fileName.FindLastOf("."), fileName.end());
+	foundClass:
+		if (!targetClass)
+			return;
 
-	for (auto* a : FAssetBrowserAction::GetActions())
-	{
-		if (a->Type() == BA_FILE_IMPORT && a->TargetClass() == targetClass)
+		FString fileName = file;
+		fileName.Erase(fileName.begin(), fileName.begin() + fileName.FindLastOf("\\/") + 1);
+		fileName.Erase(fileName.begin() + fileName.FindLastOf("."), fileName.end());
+
+		for (auto* a : FAssetBrowserAction::GetActions())
 		{
-			FBAImportFile data{ this, nullptr, file, dir + "/" + fileName + targetClass->GetExtension(), mod };
-			a->Invoke(&data);
-			break;
+			if (a->Type() == BA_FILE_IMPORT && a->TargetClass() == targetClass)
+			{
+				FBAImportFile data{ this, nullptr, file, dir + "/" + fileName + targetClass->GetExtension(), mod };
+				a->Invoke(&data);
+				break;
+			}
 		}
 	}
 }

@@ -29,7 +29,7 @@
 #include "AssetBrowserWidget.h"
 #include "ClassSelectorPopup.h"
 #include "Debug/ObjectDebugger.h"
-#include "Layers/PropertyEditor.h"
+#include "Layers/PropertiesWidget.h"
 #include "Layers/ConsoleWidget.h"
 #include "Layers/InputOutputWidget.h"
 #include "Layers/ProjectSettings.h"
@@ -71,7 +71,7 @@ int menuAction = 0;
 void CEditorEngine::UpdateEditor()
 {
 	ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(viewport->WorkPos);
 	ImGui::SetNextWindowSize(viewport->WorkSize);
 	ImGui::SetNextWindowViewport(viewport->ID);
@@ -92,7 +92,7 @@ void CEditorEngine::UpdateEditor()
 		SetupEditorDocking();
 	}
 
-	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+	ImGui::DockSpace(dockspace_id, ImVec2(0, 0), ImGuiDockNodeFlags_None);
 
 	SceneFileDialogs();
 
@@ -103,12 +103,44 @@ void CEditorEngine::UpdateEditor()
 		ImGui::EndMenuBar();
 	}
 
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::GetStyle().Colors[ImGuiCol_MenuBarBg]);
+	if (ImGui::BeginViewportSideBar("##statusbar", viewport, ImGuiDir_Down, 30, 0))
+	{
+		if (!curStatus.IsEmpty())
+		{
+			if (statusType == STATUS_INFO)
+				ImGui::Text(curStatus);
+
+			if (statusType == STATUS_HIGHLIGHT)
+			{
+				if (statusTimer > 0)
+					statusTimer -= 0.3f * DeltaTime();
+				else
+					statusTimer = 0.f;
+
+				static ImVec4 c1(1.f, 1.f, 1.f, 1.f);
+				static ImVec4 c2(1.f, 0.83f, 0.f, 1.f);
+
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(FMath::Lerp(c1.x, c2.x, statusTimer), FMath::Lerp(c1.y, c2.y, statusTimer), FMath::Lerp(c1.z, c2.z, statusTimer), 1.f));
+				ImGui::Text(curStatus);
+				ImGui::PopStyleColor();
+			}
+		}
+
+		ImGui::End();
+	}
+	ImGui::PopStyleColor();
+
 	ImGui::End();
 
 	if (menuImGuiDemo->bChecked)
 		ImGui::ShowDemoWindow(&menuImGuiDemo->bChecked);
 
 	menuCloseProject->SetEnabled(bProjectLoaded);
+	menuGenProjSln->SetEnabled(bProjectLoaded);
+	menuOpenProjSln->SetEnabled(bProjectLoaded);
+	menuCompileProjCode->SetEnabled(bProjectLoaded);
+	menuCreateCppClass->SetEnabled(bProjectLoaded);
 
 	if (!bIsPlaying)
 	{
@@ -201,7 +233,7 @@ void CEditorEngine::UpdateEditor()
 			ITexture2D* btnStep = ThoriumEditor::GetThemeIcon("btn-stepframe");
 
 			ImGui::SameLine(); ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical); ImGui::SameLine();
-			if (ImGui::ImageButtonClear("Play/Pause", (bIsPlaying && !bPaused) ? TEX_VIEW(btnPause) : TEX_VIEW(btnPlay), ImVec2(10, 10)))
+			if (ImGui::ImageButtonClear("Play/Pause", (bIsPlaying && !bPaused) ? TEX_VIEW(btnPause) : TEX_VIEW(btnPlay), ImVec2(24, 24)))
 			{
 				if (!bIsPlaying)
 				{
@@ -211,16 +243,27 @@ void CEditorEngine::UpdateEditor()
 				else
 					bPaused ^= 1;
 			}
+			if (bPaused || !bIsPlaying)
+				ImGui::SetItemTooltip("Play Game");
+			else
+				ImGui::SetItemTooltip("Pause Game");
+
+			ImGui::BeginDisabled(!bIsPlaying);
 			ImGui::SameLine();
-			if (ImGui::ImageButtonClear("Stop", TEX_VIEW(btnStop), ImVec2(10, 10)) && bIsPlaying)
+			if (ImGui::ImageButtonClear("Stop", TEX_VIEW(btnStop), ImVec2(24, 24)) && bIsPlaying)
 			{
 				StopPlay();
 				bPaused = false;
 			}
-			//bPaused ^= 1;
+			ImGui::EndDisabled();
+			ImGui::SetItemTooltip("Stop Playing");
+			
+			ImGui::BeginDisabled(!bPaused);
 			ImGui::SameLine();
-			if (ImGui::ImageButtonClear("Step Frame", TEX_VIEW(btnStep), ImVec2(10, 10)))
+			if (ImGui::ImageButtonClear("Step Frame", TEX_VIEW(btnStep), ImVec2(24, 24)))
 				bStepFrame = true;
+			ImGui::EndDisabled();
+			ImGui::SetItemTooltip("Step Frame");
 		}
 		ImGui::EndChild();
 
@@ -289,7 +332,10 @@ void CEditorEngine::UpdateEditor()
 		if (ImGui::IsItemClicked() && inputManager && !inputManager->InputEnabled() && bIsPlaying && !bPaused)
 			ToggleGameInput();
 
-		if (ImGui::IsItemClicked() && !bIsPlaying)
+		//ImGui::SetNextItemAllowOverlap();
+		//ImGui::SetCursorScreenPos(cursorPos);
+		//if (ImGui::InvisibleButton("viewportClick", ImVec2(wndSize.x, wndSize.y)) && bViewportHasFocus && !bIsPlaying)
+		if (ImGui::IsItemClicked() && bViewportHasFocus && !bIsPlaying)
 			DoMousePick();
 
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.75f, 0.75f, 0.5f));
@@ -303,6 +349,7 @@ void CEditorEngine::UpdateEditor()
 		ImGui::SetNextItemWidth(24);
 		ImGui::Button("=##_buttonCameraSettings");
 
+		ImGui::SetNextWindowPos(cursorPos + ImVec2(8, 34));
 		if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
 		{
 			ImGui::PopStyleVar();
@@ -330,15 +377,27 @@ void CEditorEngine::UpdateEditor()
 		ImGui::SameLine();
 		ImGui::Button("View##_renderSettings");
 
+		ImGui::SetNextWindowPos(cursorPos + ImVec2(33, 34));
 		if (ImGui::BeginPopupContextItem(nullptr, ImGuiPopupFlags_MouseButtonLeft))
 		{
 			ImGui::PopStyleVar();
-			if (ImGui::MenuItem("Lit"))
-				CConsole::Exec("r.materialmode 0");
-			if (ImGui::MenuItem("Unlit"))
-				CConsole::Exec("r.materialmode 1");
-			if (ImGui::MenuItem("Normal"))
-				CConsole::Exec("r.materialmode 2");
+			int matMode = cvRenderMaterialMode.AsInt();
+
+			if (ImGui::RadioButton("Lit", matMode == 0))
+				cvRenderMaterialMode.SetValue(0);
+				//CConsole::Exec("r.materialmode 0");
+			if (ImGui::RadioButton("Unlit", matMode == 1))
+				cvRenderMaterialMode.SetValue(1);
+				//CConsole::Exec("r.materialmode 1");
+			if (ImGui::RadioButton("Normal", matMode == 2))
+				cvRenderMaterialMode.SetValue(2);
+				//CConsole::Exec("r.materialmode 2");
+
+			ImGui::Separator();
+
+			ImGui::Checkbox("Selection Bounding box", &bSelectionBoundingBox);
+			ImGui::Checkbox("Selection Overlay", &bSelectionOverlay);
+			ImGui::Checkbox("Game View", &bGameView);
 
 			ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
 			ImGui::EndPopup();
@@ -561,13 +620,21 @@ void CEditorEngine::SetupMenu()
 
 	RegisterMenu(new CEditorMenu("Tools"));
 
+	menu = new CEditorMenu("Create C++ Class", false);
+	menu->OnClicked = []() { };
+	RegisterMenu(menu, "Code");
+	menuCreateCppClass = menu;
+
 #if PLATFORM_WINDOWS
 	menu = new CEditorMenu("Generate Visual Studio Project", false);
 	menu->OnClicked = []() { gEditorEngine()->GenerateProjectSln(); };
 	RegisterMenu(menu, "Code");
+	menuGenProjSln = menu;
+
 	menu = new CEditorMenu("Open Visual Studio Project", false);
 	menu->OnClicked = []() { CEditorEngine::OSOpenFile(CFileSystem::GetCurrentPath() + "/.project/" + gEditorEngine()->ActiveGame().name + "/Intermediate/Build/" + gEditorEngine()->ActiveGame().name + ".sln"); };
 	RegisterMenu(menu, "Code");
+	menuOpenProjSln = menu;
 
 	menu = new CEditorMenu("Compile Project Code", false);
 	menu->OnClicked = []() {
@@ -580,6 +647,7 @@ void CEditorEngine::SetupMenu()
 #endif
 	};
 	RegisterMenu(menu, "Code");
+	menuCompileProjCode = menu;
 #endif
 
 	// --- VIEW ---
@@ -637,6 +705,66 @@ void CEditorEngine::SetupEditorDocking()
 	ImGui::DockBuilderDockWindow("Console##_editorConsoleWidget", dock4);
 
 	ImGui::DockBuilderFinish(dockspace_id);
+}
+
+void ClearOutlinerTreeNode(FSceneOutlinerFolder* node)
+{
+	node->entities.Clear();
+	for (auto& n : node->childFolders)
+		ClearOutlinerTreeNode(&n);
+}
+
+FSceneOutlinerFolder* FindOutlinerNode(FSceneOutlinerFolder* node, SizeType id)
+{
+	if (node->id == id)
+		return node;
+
+	for (auto& n : node->childFolders)
+	{
+		auto* found = FindOutlinerNode(&n, id);
+		if (found)
+			return found;
+	}
+
+	/*for (auto& n : node->childFolders)
+		if (n.id == id)
+			return &n;*/
+
+	return nullptr;
+}
+
+void CEditorEngine::MakeOutlinerTree()
+{
+	ClearOutlinerTreeNode(&outlinerRoot);
+	outlinerRoot.id = 0;
+
+	for (auto& ent : gWorld->GetEntities())
+	{
+		auto it = entityData.find(ent.first);
+		if (it == entityData.end())
+		{
+			entityData[ent.first] = { ent.first, 0, true, true };
+			it = entityData.find(ent.first);
+		}
+
+		auto* folder = FindOutlinerNode(&outlinerRoot, it->second.outlinerFolder);
+		folder->entities.Add(ent.first);
+	}
+}
+
+void CEditorEngine::AddOutlinerFolder(const FString& name, SizeType parent)
+{
+	auto* node = &outlinerRoot;
+	if (parent != 0)
+		node = FindOutlinerNode(node, parent);
+
+	if (!node)
+	{
+		CONSOLE_LogWarning("CEditorEngine", "Attempted to add outliner folder with invalid parent!");
+		return;
+	}
+
+	node->childFolders.Add({ name, FColor::white, FMath::Random64() });
 }
 
 void CEditorEngine::DrawOutliner()
@@ -699,10 +827,10 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 	bool bSelected = IsEntitySelected(ent);
 
 	//ImGui::PushStyleVar(ImGuiStyleVar_)
-	if (!bSelected)
+	/*if (!bSelected)
 		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
 	else
-		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));
+		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));*/
 	if (ImGui::Selectable(("##ent_select_" + ent->Name() + FString::ToString(ent->Id())).c_str(), bSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap))
 	{
 		if (ImGui::IsKeyDown(ImGuiKey_ModCtrl))
@@ -734,36 +862,50 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 	if (ent->GetType() == ENTITY_DYNAMIC)
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.71f, 0.81f, 1.f, 1.f));
 
+	bool bOpen = false;
+
 	if (numChildren > 0)
 	{
 		ImGui::SetNextItemWidth(10);
 		ImGui::SetCursorScreenPos(cursor - ImVec2(8, 0));
-		bool bOpen = ImGui::TreeNodeEx(("##_tree_" + ent->Name()).c_str(), /*ImGuiTreeNodeFlags_SpanAllColumns |*/ ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen);
+		bOpen = ImGui::TreeNodeEx(("##_tree_" + ent->Name()).c_str(), /*ImGuiTreeNodeFlags_SpanAllColumns |*/ ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen);
 		ImGui::SameLine();
-
-		ImGui::SetCursorScreenPos(cursor - ImVec2(-12, 3));
-		ImGui::Image(TEX_VIEW(entIcon), ImVec2(20, 20));
-
-		ImGui::SetCursorScreenPos(cursor + ImVec2(36, 0));
-		ImGui::Text(ent->Name().c_str());
-
-		if (ent->GetType() == ENTITY_DYNAMIC)
-			ImGui::PopStyleColor();
-
-		ImGui::TableNextColumn();
-		ImGui::Text(type.c_str());
-
-		if (bOpen)
-		{
-			for (auto& child : childEnts)
-			{
-				if (child)
-					OutlinerDrawEntity(child, false);
-			}
-			ImGui::TreePop();
-		}
 	}
-	else
+	
+	ImGui::SetCursorScreenPos(cursor - ImVec2(-12, 3));
+	ImGui::Image(TEX_VIEW(entIcon), ImVec2(20, 20));
+
+	ImGui::SetCursorScreenPos(cursor + ImVec2(36, 0));
+	ImGui::Text(ent->Name().c_str());
+
+	if (ent->GetType() == ENTITY_DYNAMIC)
+		ImGui::PopStyleColor();
+
+	ImGui::TableNextColumn();
+	ImGui::Text(type.c_str());
+
+	ImGui::TableNextColumn();
+	if (ImGui::ButtonClear(("Visible##" + FString::ToString(ent->EntityId())).c_str()))
+		ent->bIsVisible ^= 1;
+	//ImGui::SameLine();
+	//if (ImGui::ButtonClear("Selectable"))
+	//{
+	//	auto it = entityData.find(ent->EntityId());
+	//	if (it != entityData.end())
+	//		it->second.bSelectable ^= 1;
+	//}
+
+	if (bOpen)
+	{
+		for (auto& child : childEnts)
+		{
+			if (child)
+				OutlinerDrawEntity(child, false);
+		}
+		ImGui::TreePop();
+	}
+
+	/*else
 	{
 		ImGui::SetCursorScreenPos(cursor - ImVec2(-12, 3));
 		ImGui::Image(TEX_VIEW(entIcon), ImVec2(20, 20));
@@ -776,7 +918,7 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 
 		ImGui::TableNextColumn();
 		ImGui::Text(type.c_str());
-	}
+	}*/
 }
 
 void CEditorEngine::EntityContextMenu(CEntity* ent, const FVector& clickPos)
@@ -795,9 +937,9 @@ void CEditorEngine::EntityContextMenu(CEntity* ent, const FVector& clickPos)
 
 	if (ImGui::MenuItem("Delete", "Ctrl+X"))
 	{
-		ent->Delete();
 		if (IsEntitySelected(ent))
 			RemoveSelectedEntity(ent);
+		ent->Delete();
 	}
 
 	ImGui::Separator();
@@ -811,19 +953,34 @@ void CEditorEngine::EntityContextMenu(CEntity* ent, const FVector& clickPos)
 	if (ImGui::MenuItem("Make Visible", "H"))
 		ent->bIsVisible = true;
 
-	if (ImGui::BeginMenu("Attach To"))
+	if (ent->RootComponent()->GetParent() == nullptr)
 	{
-		for (auto& _e : gWorld->GetEntities())
+		if (ImGui::BeginMenu("Attach To"))
 		{
-			auto e = _e.second;
-			if (e == ent)
-				continue;
+			for (auto& _e : gWorld->GetEntities())
+			{
+				auto e = _e.second;
+				if (e == ent)
+					continue;
 
-			if (ImGui::MenuItem((e->Name() + "##_attachToEnt_" + FString::ToString((SizeType) & *e)).c_str()))
-				ent->RootComponent()->AttachTo(e->RootComponent());
+				if (ImGui::MenuItem((e->Name() + "##_attachToEnt_" + FString::ToString((SizeType) & *e)).c_str()))
+					ent->RootComponent()->AttachTo(e->RootComponent());
+			}
+
+			ImGui::EndMenu();
 		}
+	}
+	else
+	{
+		ImVec2 cursor = ImGui::GetCursorScreenPos();
+		auto* parent = ent->RootComponent()->GetParent();
+		if (ImGui::MenuItem("Detach"))
+			ent->RootComponent()->Detach();
 
-		ImGui::EndMenu();
+		ImGui::SetCursorScreenPos(cursor + ImVec2(44, 0));
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.3f));
+		ImGui::Text("(from %s)", parent->GetEntity()->Name().c_str());
+		ImGui::PopStyleColor();
 	}
 }
 
@@ -877,19 +1034,19 @@ void CEditorEngine::DrawObjectCreateMenu()
 		if (ImGui::MenuItem("Cube"))
 		{
 			auto ent = gWorld->CreateEntity<CModelEntity>("Cube", entPos);
-			ent->SetModel("models/Cube.thmdl");
+			ent->SetModel("models/Cube.thasset");
 		}
 
 		if (ImGui::MenuItem("Sphere"))
 		{
 			auto ent = gWorld->CreateEntity<CModelEntity>("Sphere", entPos);
-			ent->SetModel("models/Sphere.thmdl");
+			ent->SetModel("models/Sphere.thasset");
 		}
 
 		if (ImGui::MenuItem("Cylinder"))
 		{
 			auto ent = gWorld->CreateEntity<CModelEntity>("Cube", entPos);
-			ent->SetModel("models/Cube.thmdl");
+			ent->SetModel("models/Cube.thasset");
 		}
 
 		ImGui::EndMenu();

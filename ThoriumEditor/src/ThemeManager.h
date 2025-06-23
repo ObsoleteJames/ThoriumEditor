@@ -42,5 +42,5 @@ namespace ThoriumEditor
 	const TArray<FEditorTheme>& GetThemes();
 	const FEditorTheme& Theme();
 	FEditorTheme& AddTheme(const FString& name);
-	void SaveTheme(const FEditorTheme& theme);
+	void SaveTheme(FEditorTheme& theme);
 }

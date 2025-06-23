@@ -8,8 +8,15 @@ class FStruct;
 struct FProperty;
 class CEntity;
 class CEntityComponent;
+class IPropertyEditor;
 
-class CPropertyEditor : public CLayer
+struct FPropertyCategory
+{
+	FString name;
+	TArray<TUniquePtr<IPropertyEditor>> editors;
+};
+
+class CPropertiesWidget : public CLayer
 {
 public:
 	void OnUIRender() override;
@@ -25,10 +32,17 @@ public:
 
 	void AddComponent(FClass* type);
 
+	void Refresh();
+
+	FPropertyCategory* GetCategory(const FString& name);
+
+	void AddProperties(FClass* type, int numObjects, CObject** objects, void** data);
+
 public:
 	CEntityComponent* selectedComp = nullptr;
 	CEntity* prevEnt = nullptr;
 
 	FVector rotCache;
 
+	TArray<FPropertyCategory> categories;
 };

@@ -1,6 +1,7 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "EditorWidgets.h"
+#include "ImGui/imgui_thorium.h"
 #include "Assets/Asset.h"
 #include "Assets/AssetManager.h"
 #include "ThemeManager.h"
@@ -100,7 +101,24 @@ bool ImGui::AssetPtrWidget(const char* label, TObjectPtr<CAsset>** values, int n
 
 	if (ImGui::BeginCombo((FString("##_") + label).c_str(), bEqual ? (bNull ? "None" : ((*values[0])->File() ? (*values[0])->File()->Name().c_str() : (*values[0])->Name().c_str())) : "Multiple Values"))
 	{
-		if (ImGui::Selectable("None", bNull))
+		static FString filter;
+
+		ImGui::InputText("Search", &filter);
+		ImGui::SameLine();
+		if (ImGui::Button("Clear"))
+		{
+			for (int i = 0; i < numValues; i++)
+			{
+				*values[i] = nullptr;
+				bNull = true;
+			}
+			filter.Clear();
+			r = true;
+		}
+
+		ImGui::Separator();
+
+		/*if (ImGui::Selectable("None", bNull))
 		{
 			for (int i = 0; i < numValues; i++)
 			{
@@ -110,12 +128,18 @@ bool ImGui::AssetPtrWidget(const char* label, TObjectPtr<CAsset>** values, int n
 			r = true;
 		}
 		if (bNull)
-			ImGui::SetItemDefaultFocus();
+			ImGui::SetItemDefaultFocus();*/
 
+		int numObjs = 0;
 		for (auto& obj : resources)
 		{
 			if (!obj.second.type->CanCast(filterClass))
 				continue;
+
+			if (!filter.IsEmpty() && obj.second.file->Name().Find(filter) == -1)
+				continue;
+
+			numObjs++;
 
 			bool bSelected = bEqual ? (bNull ? false : (*values[0])->File() == obj.second.file) : false;
 			if (ImGui::Selectable(obj.second.file->Name().c_str(), bSelected))
@@ -125,11 +149,15 @@ bool ImGui::AssetPtrWidget(const char* label, TObjectPtr<CAsset>** values, int n
 				{
 					*values[i] = resource;
 				}
+				filter.Clear();
 				r = true;
 			}
 			if (bSelected)
 				ImGui::SetItemDefaultFocus();
 		}
+
+		if (numObjs == 0)
+			ImGui::TextColored(ImVec4(1, 1, 1, 0.4f), "No assets found");
 
 		ImGui::EndCombo();
 	}

@@ -9,6 +9,7 @@
 #include "Rendering/RenderScene.h"
 #include "Rendering/DebugRenderer.h"
 #include "AssetBrowserWidget.h"
+#include "Assets/Animation.h"
 #include <Util/KeyValue.h>
 
 #include "FileDialogs.h"
@@ -28,6 +29,7 @@
 #include "ImGui/imgui_thorium_math.h"
 #include "EditorWidgets.h"
 #include "Dialogs/ChoiceDialog.h"
+#include "Dialogs/FileDialog.h"
 
 REGISTER_EDITOR_LAYER(CModelEditor, "Tools/Model Editor", nullptr, true, false)
 
@@ -243,8 +245,8 @@ void CModelEditor::OnUIRender()
 			ImGui::DockBuilderRemoveNode(dockspace_id);
 			ImGui::DockBuilderAddNode(dockspace_id);
 
-			ImGuiID dock1 = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.3f, nullptr, &dockspace_id);
-			ImGuiID dock2 = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.7f, nullptr, &dockspace_id);
+			ImGuiID dock1 = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.4f, nullptr, &dockspace_id);
+			ImGuiID dock2 = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.6f, nullptr, &dockspace_id);
 
 			ImGui::DockBuilderDockWindow(propertiesId.c_str(), dock1);
 			ImGui::DockBuilderDockWindow(sceneId.c_str(), dock2);
@@ -342,15 +344,23 @@ void CModelEditor::OnUIRender()
 						if (ImGui::Button("Remove"))
 							remove = i;
 						ImGui::SameLine();
-						if (ImGui::Button("Reload"))
+						if (ImGui::Button(mesh.scene ? "Reload##bLoadMeshFile" : "Load File##bLoadMeshFile"))
 						{
 							LoadMeshFile(mesh);
-							bCompiled = false;
+							if (!mesh.bLoadFailed)
+								bCompiled = false;
 						}
 						ImGui::PopStyleColor();
 
 						if (bOpen)
 						{
+							if (mesh.bLoadFailed)
+							{
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::TextColored(ImVec4(1, 0.1f, 0.1f, 1), "Failed to load mesh file!");
+							}
+
 							ImGui::TableNextRow();
 							ImGui::TableNextColumn();
 							ImGui::Text("File");
@@ -846,6 +856,29 @@ void CModelEditor::OnUIRender()
 			gEditorEngine()->PollRemoveLayer(this);
 	}
 
+	if (exportAnim)
+	{
+		FString path;
+		if (mdl->File())
+		{
+			auto* mod = mdl->File()->Mod();
+			path = mod->Name() + ":" + mdl->File()->Path();
+		}
+		CSaveFileDialog dialog(CAnimation::StaticClass(), path);
+		if (dialog.Exec())
+		{
+			FFile* file = CFileSystem::FindFile(dialog.Path());
+			bool bExport = true;
+			if (file) // file already exists so ask if we want to overwrite it
+				bExport = CChoiceDialog("File already exists!", "Do you want to continue and overwrite the existing animation?", CChoiceDialog::OPTION_YES_NO).Exec();
+
+			if (bExport)
+				compiler.ExportAnimation(exportAnim, { dialog.Mod(), dialog.Path() });
+		}
+
+		exportAnim = nullptr;
+	}
+
 	int savePopupResult = -1;
 
 	if (ImGui::BeginPopupModal("Continue without saving?##_MDLEDITCLOSE"))
@@ -904,7 +937,12 @@ void LoadMeshFile(FMeshFile& m)
 
 	m.scene = m.importer.ReadFile(m.file.c_str(), flags);
 	if (!m.scene)
+	{
+		m.bLoadFailed = true;
 		return;
+	}
+
+	m.bLoadFailed = false;
 
 	m.name = m.file;
 	
@@ -931,155 +969,6 @@ aiMatrix4x4 GetNodeWorldTransform(aiNode* node)
 		return node->mTransformation * GetNodeWorldTransform(node->mParent);
 
 	return node->mTransformation;
-}
-
-void CModelCompiler::CompileNode(FMeshFile& file, const aiScene* scene, aiNode* node, SizeType& meshOffset, SizeType& matOffset, TArray<TPair<int, aiBone*>>& outBones)
-{
-	//for (uint i = 0; i < node->mNumMeshes; i++)
-	//{
-	//	aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-
-	//	for (uint ii = 0; ii < mesh->mNumBones; ii++)
-	//	{
-	//		aiBone* bone = mesh->mBones[ii];
-
-
-	//	}
-	//}
-
-	for (uint i = 0; i < node->mNumMeshes; i++)
-	{
-		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-		aiMatrix4x4 transform = GetNodeWorldTransform(node);
-
-		FMatrix mat = file.transform.ToMatrix();
-		transform = (*(aiMatrix4x4*)&mat) * transform;
-
-		FMesh fmesh;
-		fmesh.meshName = mesh->mName.C_Str();
-		fmesh.materialIndex = mesh->mMaterialIndex + (int)matOffset;
-		
-		if (mesh->mPrimitiveTypes == aiPrimitiveType_TRIANGLE)
-			fmesh.topologyType = FMesh::TOPOLOGY_TRIANGLES;
-		else if (mesh->mPrimitiveTypes == aiPrimitiveType_LINE)
-			fmesh.topologyType = FMesh::TOPOLOGY_LINES;
-		else if (mesh->mPrimitiveTypes == aiPrimitiveType_POINT)
-			fmesh.topologyType = FMesh::TOPOLOGY_POINTS;
-
-		TArray<FVertex> vertices;
-		TArray<uint> indices;
-
-		for (uint i = 0; i < mesh->mNumVertices; i++)
-		{
-			FVertex v;
-			v.bones[0] = -1;
-			v.bones[1] = -1;
-			v.bones[2] = -1;
-			v.bones[3] = -1;
-			v.boneInfluence[0] = 0.f;
-			v.boneInfluence[1] = 0.f;
-			v.boneInfluence[2] = 0.f;
-			v.boneInfluence[3] = 0.f;
-
-			auto vPos = mesh->mVertices[i];
-			auto vNormal = mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
-			auto vTangent = mesh->mTangents ? mesh->mTangents[i] : aiVector3D(1, 0, 0);
-
-			vPos *= transform;
-			vNormal *= transform;
-			vTangent *= transform;
-
-			v.position = *(FVector*)&vPos;
-			if (mesh->mNormals)
-				v.normal = *(FVector*)&vNormal;
-			if (mesh->mTangents)
-				v.tangent = *(FVector*)&vTangent;
-			if (mesh->GetNumColorChannels() > 0)
-				v.color = *(FVector*)&mesh->mColors[0][i];
-
-			if (mesh->GetNumUVChannels() > 0)
-			{
-				v.uv1[0] = mesh->mTextureCoords[0][i].x;
-				v.uv1[1] = mesh->mTextureCoords[0][i].y;
-			}
-			if (mesh->GetNumUVChannels() > 1)
-			{
-				v.uv2[0] = mesh->mTextureCoords[1][i].x;
-				v.uv2[1] = mesh->mTextureCoords[1][i].y;
-			}
-
-			vertices.Add(v);
-		}
-
-		for (uint i = 0; i < mesh->mNumFaces; i++)
-		{
-			aiFace& face = mesh->mFaces[i];
-
-			if (face.mNumIndices == 3)
-			{
-				indices.Add(face.mIndices[0]);
-				indices.Add(face.mIndices[2]);
-				indices.Add(face.mIndices[1]);
-			}
-			else if (face.mNumIndices == 2)
-			{
-				indices.Add(face.mIndices[0]);
-				indices.Add(face.mIndices[1]);
-			}
-			else
-				indices.Add(face.mIndices[0]);
-		}
-
-		for (uint i = 0; i < mesh->mNumBones; i++)
-		{
-			auto* b = mesh->mBones[i];
-			outBones.Add({ (int)mdl->meshes.Size(), b });
-
-			//SizeType bIndex = mdl->GetBoneIndex(b->mName.C_Str());
-			//if (bIndex == -1)
-			//{
-			//	
-			//	continue;
-			//}
-
-			//for (uint ii = 0; ii < b->mNumWeights; ii++)
-			//{
-			//	auto& weight = b->mWeights[ii];
-			//	for (int x = 0; x < 4; x++)
-			//	{
-			//		if (vertices[weight.mVertexId].bones[x] == -1)
-			//		{
-			//			vertices[weight.mVertexId].bones[x] = (int)bIndex;
-			//			vertices[weight.mVertexId].boneInfluence[x] = weight.mWeight;
-			//			break;
-			//		}
-			//	}
-			//}
-		}
-
-		fmesh.vertexData = (FVertex*)malloc(vertices.Size() * sizeof(FVertex));
-		fmesh.numVertexData = vertices.Size();
-
-		memcpy(fmesh.vertexData, vertices.Data(), vertices.Size() * sizeof(FVertex));
-
-		fmesh.indexData = (uint*)malloc(indices.Size() * sizeof(uint));
-		fmesh.numIndexData = indices.Size();
-
-		memcpy(fmesh.indexData, indices.Data(), indices.Size() * sizeof(uint));
-
-		fmesh.numVertices = vertices.Size();
-		fmesh.numIndices = indices.Size();
-
-		//fmesh.vertexBuffer = gRenderer->CreateVertexBuffer(vertices);
-		//fmesh.indexBuffer = gRenderer->CreateIndexBuffer(indices);
-
-		fmesh.CalculateBounds();
-
-		mdl->meshes.Add(fmesh);
-	}
-
-	for (int i = 0; i < node->mNumChildren; i++)
-		CompileNode(file, scene, node->mChildren[i], meshOffset, matOffset, outBones);
 }
 
 void CModelEditor::DrawMeshResources(FMeshFile& m)
@@ -1176,13 +1065,13 @@ void CModelEditor::DrawAiNode(const aiScene* scene, aiNode* node)
 
 		if (node->mNumChildren > 0)
 		{
-			if (ImGui::TableTreeHeader("Children", 0, true))
-			{
+			//if (ImGui::TableTreeHeader("Children", 0, true))
+			//{
 				for (uint i = 0; i < node->mNumChildren; i++)
 					DrawAiNode(scene, node->mChildren[i]);
 
-				ImGui::TreePop();
-			}
+			//	ImGui::TreePop();
+			//}
 		}
 		ImGui::TreePop();
 	}
@@ -1202,7 +1091,7 @@ void CModelEditor::DrawAnimations(const aiScene* scene)
 				ImGui::TableNextColumn();
 				if (ImGui::Button("Export"))
 				{
-					// TODO: export animation
+					exportAnim = anim;
 				}
 				
 				ImGui::SameLine(); ImGui::TextDisabled("(?)");
@@ -1344,7 +1233,6 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 
 				if (settings.bCreateMaterials)
 				{
-					
 				}
 
 				mdl->materials.Add(mat);
@@ -1380,18 +1268,29 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 
 			CompileNode(file, scene, root, meshesOffset, materialsOffset, bones);
 
+			TMap<aiNode*, int> boneLUT;
+
 			for (auto& b : bones)
 			{
-				FBone newBone;
-				newBone.name = b.Value->mName.C_Str();
+				FBone* newBone = nullptr;
+				int bIndex = boneLUT[b.Value->mNode];
+				if (bIndex == 0)
+				{
+					mdl->skeleton.bones.Add();
+					
+					bIndex = mdl->skeleton.bones.Size();
+					boneLUT[b.Value->mNode] = bIndex;
+				}
+				newBone = &mdl->skeleton.bones[bIndex - 1];
+				newBone->name = b.Value->mName.C_Str();
 
 				aiVector3D scale;
 				aiVector3D pos;
 				aiQuaternion rot;
 
 				b.Value->mNode->mTransformation.Decompose(scale, rot, pos);
-				newBone.position = { pos.x, pos.y, pos.z };
-				newBone.rotation = { rot.x, rot.y, rot.z, rot.w };
+				newBone->position = { pos.x, pos.y, pos.z };
+				newBone->rotation = { rot.x, rot.y, rot.z, rot.w };
 
 				auto& mesh = mdl->meshes[b.Key];
 
@@ -1410,18 +1309,18 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 					{
 						if (vertex.bones[x] == -1)
 						{
-							vertex.bones[x] = (int)mdl->skeleton.bones.Size();
+							vertex.bones[x] = bIndex - 1;
 							vertex.boneInfluence[x] = weight.mWeight;
 							break;
 						}
 					}
 				}
 
-				mdl->skeleton.bones.Add(newBone);
+				//mdl->skeleton.bones.Add(newBone);
 			}
 
 			// Resolve bone parents
-			for (int i = 0; i < bones.Size(); i++)
+			for (int i = 0; i < mdl->skeleton.bones.Size(); i++)
 			{
 				aiNode* parent = bones[i].Value->mNode->mParent;
 				mdl->skeleton.bones[i].parent = mdl->GetBoneIndex(parent->mName.C_Str());
@@ -1473,6 +1372,148 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 	mdl->UpdateBoneMatrices();
 
 	return true;
+}
+
+void CModelCompiler::CompileNode(FMeshFile& file, const aiScene* scene, aiNode* node, SizeType& meshOffset, SizeType& matOffset, TArray<TPair<int, aiBone*>>& outBones)
+{
+	//for (uint i = 0; i < node->mNumMeshes; i++)
+	//{
+	//	aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+
+	//	for (uint ii = 0; ii < mesh->mNumBones; ii++)
+	//	{
+	//		aiBone* bone = mesh->mBones[ii];
+
+
+	//	}
+	//}
+
+	for (uint i = 0; i < node->mNumMeshes; i++)
+	{
+		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+		aiMatrix4x4 transform = GetNodeWorldTransform(node);
+
+		FMatrix mat = file.transform.ToMatrix();
+		transform = (*(aiMatrix4x4*)&mat) * transform;
+
+		FMesh fmesh;
+		fmesh.meshName = mesh->mName.C_Str();
+		fmesh.materialIndex = mesh->mMaterialIndex + (int)matOffset;
+
+		if (mesh->mPrimitiveTypes == aiPrimitiveType_TRIANGLE)
+			fmesh.topologyType = FMesh::TOPOLOGY_TRIANGLES;
+		else if (mesh->mPrimitiveTypes == aiPrimitiveType_LINE)
+			fmesh.topologyType = FMesh::TOPOLOGY_LINES;
+		else if (mesh->mPrimitiveTypes == aiPrimitiveType_POINT)
+			fmesh.topologyType = FMesh::TOPOLOGY_POINTS;
+
+		TArray<FVertex> vertices;
+		TArray<uint> indices;
+
+		vertices.Reserve(mesh->mNumVertices);
+		indices.Reserve(mesh->mNumFaces * 3);
+
+		for (uint i = 0; i < mesh->mNumVertices; i++)
+		{
+			FVertex v;
+			v.bones[0] = -1;
+			v.bones[1] = -1;
+			v.bones[2] = -1;
+			v.bones[3] = -1;
+			v.boneInfluence[0] = 0.f;
+			v.boneInfluence[1] = 0.f;
+			v.boneInfluence[2] = 0.f;
+			v.boneInfluence[3] = 0.f;
+
+			auto vPos = mesh->mVertices[i];
+			auto vNormal = mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
+			auto vTangent = mesh->mTangents ? mesh->mTangents[i] : aiVector3D(1, 0, 0);
+
+			vPos *= transform;
+			vNormal *= transform;
+			vTangent *= transform;
+
+			v.position = *(FVector*)&vPos;
+			if (mesh->mNormals)
+				v.normal = *(FVector*)&vNormal;
+			if (mesh->mTangents)
+				v.tangent = *(FVector*)&vTangent;
+			if (mesh->GetNumColorChannels() > 0)
+				v.color = *(FVector*)&mesh->mColors[0][i];
+
+			if (mesh->GetNumUVChannels() > 0)
+			{
+				v.uv1[0] = mesh->mTextureCoords[0][i].x;
+				v.uv1[1] = mesh->mTextureCoords[0][i].y;
+			}
+			if (mesh->GetNumUVChannels() > 1)
+			{
+				v.uv2[0] = mesh->mTextureCoords[1][i].x;
+				v.uv2[1] = mesh->mTextureCoords[1][i].y;
+			}
+
+			vertices.Add(v);
+		}
+
+		for (uint i = 0; i < mesh->mNumFaces; i++)
+		{
+			aiFace& face = mesh->mFaces[i];
+
+			if (face.mNumIndices == 3)
+			{
+				indices.Add(face.mIndices[0]);
+				indices.Add(face.mIndices[2]);
+				indices.Add(face.mIndices[1]);
+			}
+			else if (face.mNumIndices == 2)
+			{
+				indices.Add(face.mIndices[0]);
+				indices.Add(face.mIndices[1]);
+			}
+			else
+				indices.Add(face.mIndices[0]);
+		}
+
+		for (uint i = 0; i < mesh->mNumBones; i++)
+		{
+			auto* b = mesh->mBones[i];
+			/*bool bExists = false;
+			for (auto& bone : outBones)
+			{
+				if (bone.Value == b)
+				{
+					bExists = true;
+					break;
+				}
+			}
+
+			if (!bExists)*/
+			outBones.Add({ (int)mdl->meshes.Size(), b });
+		}
+
+		fmesh.vertexData = (FVertex*)malloc(vertices.Size() * sizeof(FVertex));
+		fmesh.numVertexData = vertices.Size();
+
+		memcpy(fmesh.vertexData, vertices.Data(), vertices.Size() * sizeof(FVertex));
+
+		fmesh.indexData = (uint*)malloc(indices.Size() * sizeof(uint));
+		fmesh.numIndexData = indices.Size();
+
+		memcpy(fmesh.indexData, indices.Data(), indices.Size() * sizeof(uint));
+
+		fmesh.numVertices = vertices.Size();
+		fmesh.numIndices = indices.Size();
+
+		//fmesh.vertexBuffer = gRenderer->CreateVertexBuffer(vertices);
+		//fmesh.indexBuffer = gRenderer->CreateIndexBuffer(indices);
+
+		fmesh.CalculateBounds();
+
+		mdl->meshes.Add(fmesh);
+	}
+
+	for (int i = 0; i < node->mNumChildren; i++)
+		CompileNode(file, scene, node->mChildren[i], meshOffset, matOffset, outBones);
 }
 
 bool CModelCompiler::GenerateLODGroups(FString suffix /*= "_LOD"*/)
@@ -1552,7 +1593,46 @@ void CModelCompiler::SaveModel(FMeshFile* meshFiles, int numMeshFiles)
 	mdl->Save();
 }
 
-bool CModelCompiler::ImportAnimations(FMeshFile* meshFiles, int numMeshFiles, const FAnimationImportSettings& settings)
+bool CModelCompiler::ExportAnimation(aiAnimation* anim, const FAnimationImportSettings& settings)
 {
-	return false;
+	bool bNew = false;
+	TObjectPtr<CAnimation> out = CAssetManager::GetAsset<CMaterial>(settings.path);
+	if (!out.IsValid())
+	{
+		bNew = true;
+		out = CreateObject<CAnimation>();
+	}
+
+	//out->SetFrameRate(anim->mTicksPerSecond);
+	for (int i = 0; i < anim->mNumChannels; i++)
+	{
+		auto* channel = out->AddChannel(anim->mChannels[i]->mNodeName.C_Str());
+		channel->behaviour = KEYFRAME_INTERP_LINEAR;
+		channel->type = KEYFRAME_BONE;
+		
+		//int keyFrames = FMath::Max(FMath::Max(anim->mChannels[i]->mNumPositionKeys, anim->mChannels[i]->mNumRotationKeys), anim->mChannels[i]->mScalingKeys);
+
+		for (int ii = 0; ii < anim->mChannels[i]->mNumPositionKeys; ii++)
+		{
+			auto& key = anim->mChannels[i]->mPositionKeys[ii];
+			channel->keyframes[ii].keyBone.position = *(FVector*)&key.mValue;
+		}
+		for (int ii = 0; ii < anim->mChannels[i]->mNumRotationKeys; ii++)
+		{
+			auto& key = anim->mChannels[i]->mRotationKeys[ii];
+			channel->keyframes[ii].keyBone.rotation = *(FQuaternion*)&key.mValue;
+		}
+		for (int ii = 0; ii < anim->mChannels[i]->mNumScalingKeys; ii++)
+		{
+			auto& key = anim->mChannels[i]->mScalingKeys[ii];
+			channel->keyframes[ii].keyBone.scale = *(FVector*)&key.mValue;
+		}
+	}
+
+	if (bNew)
+		CAssetManager::RegisterNewAsset(out, settings.path, settings.mod);
+
+	out->Save();
+	
+	return true;
 }

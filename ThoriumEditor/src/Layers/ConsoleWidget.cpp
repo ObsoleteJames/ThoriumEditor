@@ -8,6 +8,12 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_internal.h"
+#include "ImGui/imgui_thorium.h"
+#include "ThemeManager.h"
+
+#include "Platform/Windows/DirectX/DirectXTexture.h"
+
+#define TEX_VIEW(tex) ((DirectXTexture2D*)tex)->view
 
 REGISTER_EDITOR_LAYER(CConsoleWidget, "View/Console", nullptr, false, true)
 
@@ -83,7 +89,9 @@ void CConsoleWidget::OnUIRender()
 		}
 		ImGui::EndChild();
 
-		float contentWidth = ImGui::GetContentRegionAvail().x;
+		float contentWidth = ImGui::GetContentRegionAvail().x - 110;
+
+		ImGui::SetNextItemWidth(contentWidth * 0.8f);
 
 		ImGui::InputText("##_consoleInput", buffInput, 48);
 		if (ImGui::IsItemDeactivatedAfterEdit())
@@ -107,57 +115,32 @@ void CConsoleWidget::OnUIRender()
 			ImGui::PopStyleColor();
 		}
 
-		ImGui::SameLine();
-		bool bPop = false;
-		if (!bShowInfo)
-		{
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.22f, 0.22f, 0.5f));
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.4f));
-			bPop = true;
-		}
-
-		if (ImGui::Button("Info"))
-			bShowInfo = ! bShowInfo;
-
-		if (bPop)
-		{
-			ImGui::PopStyleColor(2);
-			bPop = false;
-		}
+		ITexture2D* imgInfo = ThoriumEditor::GetThemeIcon("consoleInfo24");
+		ITexture2D* imgWarning = ThoriumEditor::GetThemeIcon("consoleWarning24");
+		ITexture2D* imgError = ThoriumEditor::GetThemeIcon("consoleError24");
 
 		ImGui::SameLine();
-		if (!bShowWarnings)
-		{
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.22f, 0.22f, 0.5f));
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.4f));
-			bPop = true;
-		}
 
-		if (ImGui::Button("Warnings"))
+		if (ImGui::ImageButtonClear("##btnShowInfo", TEX_VIEW(imgInfo), ImVec2(24, 24), 0, ImVec2(0, 0), ImVec2(1, 1), bShowInfo ? ImVec4(1, 1, 1, 1) : ImVec4(1, 1, 1, 0.3f)))
+			bShowInfo = !bShowInfo;
+
+		ImGui::SetItemTooltip("Show Info");
+
+		//if (ImGui::Button("Info"))
+
+		ImGui::SameLine();
+
+		if (ImGui::ImageButtonClear("##btnShowWarnings", TEX_VIEW(imgWarning), ImVec2(24, 24), 0, ImVec2(0, 0), ImVec2(1, 1), bShowWarnings ? ImVec4(1, 1, 1, 1) : ImVec4(1, 1, 1, 0.3f)))
 			bShowWarnings ^= 1;
 
-		if (bPop)
-		{
-			ImGui::PopStyleColor(2);
-			bPop = false;
-		}
+		ImGui::SetItemTooltip("Show Warnings");
 
 		ImGui::SameLine();
-		if (!bShowErrors)
-		{
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.22f, 0.22f, 0.5f));
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.4f));
-			bPop = true;
-		}
 
-		if (ImGui::Button("Errors"))
+		if (ImGui::ImageButtonClear("##btnShowErrors", TEX_VIEW(imgError), ImVec2(24, 24), 0, ImVec2(0, 0), ImVec2(1, 1), bShowErrors ? ImVec4(1, 1, 1, 1) : ImVec4(1, 1, 1, 0.3f)))
 			bShowErrors ^= 1;
 
-		if (bPop)
-		{
-			ImGui::PopStyleColor(2);
-			bPop = false;
-		}
+		ImGui::SetItemTooltip("Show Errors");
 
 	}
 	ImGui::End();

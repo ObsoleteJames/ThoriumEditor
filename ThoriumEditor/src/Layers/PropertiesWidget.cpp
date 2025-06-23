@@ -1,9 +1,10 @@
 
 #include <string>
-#include "PropertyEditor.h"
+#include "PropertiesWidget.h"
 #include "Game/Entity.h"
 #include "EditorEngine.h"
 #include "Game/Components/SceneComponent.h"
+#include "PropertyEditors/PropertyEditor.h"
 
 #include "Math/Color.h"
 
@@ -17,11 +18,22 @@
 
 #include "ClassSelectorPopup.h"
 
-REGISTER_EDITOR_LAYER(CPropertyEditor, "View/Properties", nullptr, false, true)
+REGISTER_EDITOR_LAYER(CPropertiesWidget, "View/Properties", nullptr, false, true)
 
-void CPropertyEditor::OnUIRender()
+void CPropertiesWidget::OnUIRender()
 {
 	auto& selectedEntities = gEditorEngine()->selectedEntities;
+
+	static TArray<CEntity*> prevSelected;
+	if (prevSelected != selectedEntities)
+	{
+		selectedComp = nullptr;
+		Refresh();
+
+		prevSelected.Clear();
+		for (auto& ent : selectedEntities)
+			prevSelected.Add(ent);
+	}
 
 	// Property Editor
 	if (ImGui::Begin("Properties##_editorPropertyEditor", &bEnabled))
@@ -155,10 +167,10 @@ void CPropertyEditor::OnUIRender()
 
 						bool bSelected = selectedComp == comp;
 
-						if (!bSelected)
+						/*if (!bSelected)
 							ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
 						else
-							ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));
+							ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));*/
 
 						if (ImGui::Selectable(("##_compSelect" + comp->Name() + FString::ToString((SizeType)&*comp)).c_str(), bSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap))
 						{
@@ -270,7 +282,7 @@ void CPropertyEditor::OnUIRender()
 				if (selectedEntities[0]->RootComponent())
 				{
 					for (TObjectPtr<CSceneComponent>& c : selectedEntities[0]->RootComponent()->GetChildren())
-						if (c)
+						if (c && c->GetEntity() == selectedEntities[0])
 							compTree.AddChild(c);
 				}
 
@@ -279,14 +291,15 @@ void CPropertyEditor::OnUIRender()
 
 				bool bSelected = selectedComp == nullptr;
 
-				if (!bSelected)
+				/*if (!bSelected)
 					ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
 				else
-					ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));
+					ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));*/
 
 				if (ImGui::Selectable(("##_compSelect" + selectedEntities[0]->Name()).c_str(), bSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap))
 				{
 					selectedComp = nullptr;
+					Refresh();
 				}
 				if (ImGui::BeginDragDropTarget())
 				{
@@ -320,7 +333,13 @@ void CPropertyEditor::OnUIRender()
 				if (bOpen)
 				{
 					for (auto& c : compTree.childTrees)
+					{
+						auto* _c = selectedComp;
 						c.DrawUI(selectedComp, rotCache);
+
+						if (_c != selectedComp)
+							Refresh();
+					}
 
 					ImGui::TreePop();
 				}
@@ -335,14 +354,15 @@ void CPropertyEditor::OnUIRender()
 
 					bool bSelected = selectedComp == c;
 
-					if (!bSelected)
+					/*if (!bSelected)
 						ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
 					else
-						ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));
+						ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.21f, 0.26f, 0.38f, 1.00f));*/
 
 					if (ImGui::Selectable(("##_compSelect" + c->Name() + FString::ToString((SizeType)c)).c_str(), bSelected, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap))
 					{
 						selectedComp = c;
+						Refresh();
 					}
 
 					CSceneComponent* sceneComp = Cast<CSceneComponent>(TObjectPtr<CEntityComponent>(c));
@@ -410,7 +430,21 @@ void CPropertyEditor::OnUIRender()
 				if (_class->CanCast(CEntity::StaticClass()) || _class->CanCast(CSceneComponent::StaticClass()))
 					RenderTransformEdit();
 
-				RenderClassProperties(_class, 0);
+				ImGuiTreeNodeFlags treeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_FrameDontExpand;
+
+				//RenderClassProperties(_class, 0);
+				for (auto& cat : categories)
+				{
+					if (ImGui::TableTreeHeader(cat.name.c_str(), treeFlags))
+					{
+						for (auto& edit : cat.editors)
+							if (edit)
+								edit->Render();
+
+						ImGui::TreePop();
+					}
+				}
+
 				ImGui::EndTable();
 			}
 		}
@@ -419,7 +453,7 @@ void CPropertyEditor::OnUIRender()
 	Menu()->bChecked = bEnabled;
 }
 
-void CPropertyEditor::RenderClassProperties(FStruct* type, SizeType offset, bool bHeader)
+void CPropertiesWidget::RenderClassProperties(FStruct* type, SizeType offset, bool bHeader)
 {
 	auto& selectedEntities = gEditorEngine()->selectedEntities;
 	std::multimap<std::string, const FProperty*> propertyPerCategory;
@@ -512,7 +546,7 @@ void CPropertyEditor::RenderClassProperties(FStruct* type, SizeType offset, bool
 		ImGui::TreePop();
 }
 
-void CPropertyEditor::RenderProperty(uint type, const FProperty* prop, void** objects, int objCount, SizeType offset)
+void CPropertiesWidget::RenderProperty(uint type, const FProperty* prop, void** objects, int objCount, SizeType offset)
 {
 	FString propId = FString::ToString((SizeType)prop + offset);
 	bool bReadOnly = (prop->flags & VTAG_EDITOR_EDITABLE) == 0;
@@ -867,7 +901,7 @@ void CPropertyEditor::RenderProperty(uint type, const FProperty* prop, void** ob
 	}
 }
 
-void CPropertyEditor::AddComponent(FClass* type)
+void CPropertiesWidget::AddComponent(FClass* type)
 {
 	auto& selectedEntities = gEditorEngine()->selectedEntities;
 	TObjectPtr<CEntityComponent> comp = selectedEntities[0]->AddComponent(type, type->GetName());
@@ -880,7 +914,102 @@ void CPropertyEditor::AddComponent(FClass* type)
 		scene->AttachTo(selectedEntities[0]->RootComponent());
 }
 
-void CPropertyEditor::RenderTransformEdit()
+void CPropertiesWidget::Refresh()
+{
+	categories.Clear();
+
+	auto& selectedEntities = gEditorEngine()->selectedEntities;
+	if (selectedEntities.Size() == 0)
+		return;
+
+	FClass* type = selectedEntities[0]->GetClass();
+	if (!selectedComp)
+	{
+		for (int i = 1; i < selectedEntities.Size(); i++)
+		{
+			if (selectedEntities[i]->GetClass() != type)
+			{
+				// Fallback to entity class if all selected objects aren't the same type
+				type = CEntity::StaticClass();
+				break;
+			}
+		}
+	}
+	else
+		type = selectedComp->GetClass();
+	
+	void* obj = selectedComp ? (void*)selectedComp : (void*)&*selectedEntities[0];
+
+	static TArray<void*> objects;
+	objects.Clear();
+
+	static TArray<CObject*> owners;
+	owners.Clear();
+
+	if (selectedEntities.Size() > 1)
+	{
+		for (auto& t : selectedEntities)
+		{
+			objects.Add((void*)&*t);
+			owners.Add(t);
+		}
+	}
+	else
+	{
+		objects.Add(obj);
+		if (selectedComp)
+			owners.Add(selectedComp);
+		else
+			owners.Add(selectedEntities[0]);
+	}
+
+	SizeType objCount = objects.Size();
+
+	AddProperties(type, objCount, owners.Data(), objects.Data());
+}
+
+FPropertyCategory* CPropertiesWidget::GetCategory(const FString& name)
+{
+	for (auto& cat : categories)
+		if (cat.name == name)
+			return &cat;
+
+	categories.Add();
+	categories.last()->name = name;
+	return &*categories.last();
+}
+
+void CPropertiesWidget::AddProperties(FClass* type, int numObjects, CObject** objects, void** data)
+{
+	bool bHasExposedComponent = false;
+	for (FClass* c = type; c != nullptr; c = c->GetBaseClass())
+	{
+		for (const FProperty* p = c->GetPropertyList(); p != nullptr; p = p->next)
+		{
+			if (numObjects < 2 && p->meta && p->meta->HasFlag("ExposeProperties"))
+			{
+				if (p->type != EVT_OBJECT_PTR)
+					continue;
+
+				bHasExposedComponent = true;
+
+				TObjectPtr<CObject>& target = *(TObjectPtr<CObject>*)((SizeType)objects[0] + p->offset);
+				if (target)
+					AddProperties(target->GetClass(), 1, (CObject**)&target, (void**)&target);
+			}
+
+			if ((p->flags & VTAG_EDITOR_VISIBLE) == 0 && (p->flags & VTAG_EDITOR_EDITABLE) == 0)
+				continue;
+
+			if (!bHasExposedComponent && p->meta && !p->meta->category.IsEmpty())
+				GetCategory(p->meta->category)->editors.Add(IPropertyEditor::GetEditor(numObjects, objects, data, p));
+			else
+				GetCategory(c->GetName())->editors.Add(IPropertyEditor::GetEditor(numObjects, objects, data, p));
+		}
+	}
+}
+
+void CPropertiesWidget::RenderTransformEdit()
 {
 	auto& selectedEntities = gEditorEngine()->selectedEntities;
 	ImGuiTreeNodeFlags treeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_FrameDontExpand;
@@ -937,7 +1066,7 @@ void CPropertyEditor::RenderTransformEdit()
 	}
 }
 
-bool CPropertyEditor::RenderVectorProperty(SizeType offset, bool bReadOnly)
+bool CPropertiesWidget::RenderVectorProperty(SizeType offset, bool bReadOnly)
 {
 	auto& selectedEntities = gEditorEngine()->selectedEntities;
 	void* obj = selectedComp != nullptr ? (void*)selectedComp : (void*)&*selectedEntities[0];
@@ -1019,7 +1148,7 @@ bool CPropertyEditor::RenderVectorProperty(SizeType offset, bool bReadOnly)
 	return r;
 }
 
-bool CPropertyEditor::RenderColorProperty(SizeType offset, bool bReadOnly)
+bool CPropertiesWidget::RenderColorProperty(SizeType offset, bool bReadOnly)
 {
 	auto& selectedEntities = gEditorEngine()->selectedEntities;
 	void* obj = selectedComp != nullptr ? (void*)selectedComp : (void*)&*selectedEntities[0];
@@ -1042,7 +1171,7 @@ bool CPropertyEditor::RenderColorProperty(SizeType offset, bool bReadOnly)
 	return r;
 }
 
-bool CPropertyEditor::RenderQuatProperty(SizeType offset, bool bReadOnly)
+bool CPropertiesWidget::RenderQuatProperty(SizeType offset, bool bReadOnly)
 {
 	auto& selectedEntities = gEditorEngine()->selectedEntities;
 	void* obj = selectedComp != nullptr ? (void*)selectedComp : (void*)&*selectedEntities[0];

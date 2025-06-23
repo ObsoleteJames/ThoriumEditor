@@ -9,6 +9,7 @@
 #include "EditorEngine.h"
 #include "EditorMenu.h"
 #include "ThemeManager.h"
+#include "Dialogs/InputTextDialog.h"
 
 REGISTER_EDITOR_LAYER(CEditorSettingsWidget, "Edit/Editor Settings", "Settings", false, false)
 
@@ -154,6 +155,9 @@ void CEditorSettingsWidget::SettingsThemes()
 		ImGui::Text("Theme");
 		ImGui::TableNextColumn();
 
+		// ImGuiCol_ChildBg
+		ImGui::PopStyleColor();
+
 		ImGuiStyle& style = ImGui::GetStyle();
 		static ImGuiStyle ref_saved_style;
 
@@ -171,7 +175,6 @@ void CEditorSettingsWidget::SettingsThemes()
 					ThoriumEditor::SetTheme(th.name);
 					ref_saved_style = style;
 				}
-
 			}
 
 			ImGui::EndCombo();
@@ -180,9 +183,13 @@ void CEditorSettingsWidget::SettingsThemes()
 		ImGui::SameLine();
 		if (ImGui::Button("Add"))
 		{
-			auto& newTheme = ThoriumEditor::AddTheme("New Theme");
-			//newTheme = theme;
-			ThoriumEditor::SetTheme(newTheme.name);
+			CInputTextDialog dialog("Create Theme", "Name");
+
+			if (dialog.Exec())
+			{
+				auto& newTheme = ThoriumEditor::AddTheme(dialog.GetText());
+				ThoriumEditor::SetTheme(newTheme.name);
+			}
 		}
 
 		if (ImGui::TableTreeHeader("Edit##editThemeHeader", 0, true))
@@ -190,7 +197,7 @@ void CEditorSettingsWidget::SettingsThemes()
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			if (ImGui::Button("Save"))
-				ThoriumEditor::SaveTheme(theme);
+				ThoriumEditor::SaveTheme(*(FEditorTheme*)&theme);
 
 			ImGui::BeginDisabled(theme.name == "default");
 
@@ -220,7 +227,7 @@ void CEditorSettingsWidget::SettingsThemes()
 			ImGui::SeparatorText("Colours");
 
 			static ImGuiTextFilter filter;
-			filter.Draw("Filter colors", ImGui::GetFontSize() * 16);
+			filter.Draw("Filter colours", ImGui::GetFontSize() * 16);
 
 			static ImGuiColorEditFlags alpha_flags = 0;
 			if (ImGui::RadioButton("Opaque", alpha_flags == ImGuiColorEditFlags_None)) { alpha_flags = ImGuiColorEditFlags_None; } ImGui::SameLine();
@@ -244,21 +251,15 @@ void CEditorSettingsWidget::SettingsThemes()
 				ImGui::ColorEdit4("##color", (float*)&style.Colors[i], ImGuiColorEditFlags_AlphaBar | alpha_flags);
 				if (memcmp(&style.Colors[i], &ref_saved_style.Colors[i], sizeof(ImVec4)) != 0)
 				{
-					// Tips: in a real user application, you may want to merge and use an icon font into the main font,
-					// so instead of "Save"/"Revert" you'd use icons!
-					// Read the FAQ and docs/FONTS.md about using icon fonts. It's really easy and super convenient!
-					ImGui::SameLine(0.0f, style.ItemInnerSpacing.x); if (ImGui::Button("Save")) { ref_saved_style.Colors[i] = style.Colors[i]; }
 					ImGui::SameLine(0.0f, style.ItemInnerSpacing.x); if (ImGui::Button("Revert")) { style.Colors[i] = ref_saved_style.Colors[i]; }
 				}
-				//ImGui::SameLine(0.0f, style.ItemInnerSpacing.x);
-				//ImGui::TextUnformatted(name);
 				ImGui::PopID();
 			}
 			ImGui::PopItemWidth();
-			//ImGui::EndChild();
 
 			ImGui::TreePop();
 		}
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
 
 		ImGui::EndTable();
 	}

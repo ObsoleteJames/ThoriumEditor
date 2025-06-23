@@ -80,6 +80,9 @@ public:
 	inline FFile* GetSelectedFile() const { if (selectedFiles.Size() == 0) return nullptr; return selectedFiles[0]; }
 	inline const TArray<FFile*>& GetSelectedFiles() const { return selectedFiles; }
 
+	inline FDirectory* GetSelectedFolder() const { if (selectedFolders.Size() == 0) return nullptr; return selectedFolders[0]; }
+	inline const TArray<FDirectory*>& GetSelectedFolders() const { return selectedFolders; }
+
 	void SetDir(FMod* m, FDirectory* d);
 	void SetDir(const FString& m, const FString& d);
 
@@ -102,6 +105,11 @@ private:
 	void RemoveSelectedFile(FFile* file);
 	bool IsFileSelected(FFile* file);
 
+	void SetSelectedFolder(FDirectory* file);
+	void AddSelectedFolder(FDirectory* file);
+	void RemoveSelectedFolder(FDirectory* file);
+	bool IsFolderSelected(FDirectory* file);
+
 	void ImportAsset();
 
 	void DoMoveFile(FDirectory* target);
@@ -109,6 +117,7 @@ private:
 public:
 	bool bAllowFileEdit = true;
 	bool bAllowMultiSelect = true;
+	bool bAllowFolderEdit = true;
 
 	// true if the selected file was double clicked
 	bool bDoubleClickedFile = false;
@@ -132,11 +141,13 @@ public:
 
 private:
 	FString dirInput;
+	FString search;
 
 	SizeType historyIndex = 0;
 	TArray<FString> historyList;
 
 	TArray<FFile*> selectedFiles;
+	TArray<FDirectory*> selectedFolders;
 
 	float sizeL = 200;
 	float sizeR = 200;

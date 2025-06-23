@@ -13,12 +13,22 @@ struct FSceneOutlinerFolder
 	FGuid id;
 
 	TArray<FSceneOutlinerFolder> childFolders;
+	TArray<SizeType> entities;
 };
 
-struct FSceneOutlinerTree
-{
-	TArray<FSceneOutlinerFolder> folders;
+//struct FSceneOutlinerTree
+//{
+//	TArray<FSceneOutlinerFolder> folders;
+//
+//	// Key: EntityID, Value: { FolderId, SortOrder }
+//	TMap<SizeType, TPair<SizeType, int>> outlinerOrder;
+//};
 
-	// Key: EntityID, Value: { FolderId, SortOrder }
-	TMap<SizeType, TPair<SizeType, int>> outlinerOrder;
+struct FEntityEditorData
+{
+	SizeType entityId;
+	SizeType outlinerFolder;
+
+	bool bVisible = true;
+	bool bSelectable = true;
 };

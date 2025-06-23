@@ -18,7 +18,7 @@ class CLayer;
 class CEntity;
 
 class CEditorMenu;
-class CPropertyEditor;
+class CPropertiesWidget;
 class CConsoleWidget;
 class CInputOutputWidget;
 class CProjectSettingsWidget;
@@ -107,6 +107,8 @@ public:
 
 	bool LoadProject(const FString& path) override;
 
+	void MakeProject(const FProject& project);
+
 public:
 	inline static FString GetEditorConfigPath() { return OSGetDataPath() + "/ThoriumEngine/EditorConfig"; }
 
@@ -115,6 +117,8 @@ public:
 
 	void CompileProjectCode(int config = 0);
 	void GenerateProjectSln();
+
+	void GenerateCppClass(const FString& path, const FString& className, const FString& baseClass);
 
 	void RegisterProject(const FProject& proj);
 
@@ -141,6 +145,10 @@ public:
 
 	inline ESelectMode SelectMode() const { return selectMode; }
 	void SetSelectMode(ESelectMode mode);
+
+	void SetStatus(const FString& text);
+	void SetStatusHighlight(const FString& text);
+	void SetStatusError(const FString& text);
 
 private:
 	void InitEditorData();
@@ -186,6 +194,8 @@ private:
 	void EntityContextMenu(CEntity* ent, const FVector& clickPos);
 	void DoEntityShortcuts();
 
+	void DoEditorRender();
+
 	void CopyEntity();
 	void PasteEntity(const FVector& pos);
 
@@ -206,6 +216,9 @@ private:
 	//void UpdateGizmoEdge();
 
 	void DrawSelectedSkeleton();
+
+	void MakeOutlinerTree();
+	void AddOutlinerFolder(const FString& name, SizeType parent);
 
 public:
 	static void OSOpenFileManager(const FString& path);
@@ -231,6 +244,9 @@ public:
 	TArray<FEditorAddon> editorAddons;
 	TArray<FEditorModule*> editorModules;
 
+	FSceneOutlinerFolder outlinerRoot;
+	TMap<SizeType, FEntityEditorData> entityData;
+
 	union
 	{
 		int selectedBone = -1;
@@ -241,6 +257,11 @@ public:
 
 	// the component that the selected bone is from
 	TObjectPtr<CModelComponent> boneComponent;
+
+	bool bSelectionBoundingBox = true;
+	bool bSelectionOverlay = true;
+	bool bSelectionSizeText = true;
+	bool bGameView = false;
 
 	bool bGizmoActive = false;
 	FMatrix manipulationMatrix;
@@ -280,11 +301,27 @@ public:
 	CEditorMenu* menuImGuiDemo = nullptr;
 
 	CEditorMenu* menuCloseProject = nullptr;
+	
+	CEditorMenu* menuGenProjSln = nullptr;
+	CEditorMenu* menuOpenProjSln = nullptr;
+	CEditorMenu* menuCompileProjCode = nullptr;
+	CEditorMenu* menuCreateCppClass = nullptr;
 
-	bool bOpenProj = true;
+	bool bOpenProj = false;
 
 	double imguiRenderTime;
 	double editorUpdateTime;
+
+	enum EStatusType
+	{
+		STATUS_INFO,
+		STATUS_HIGHLIGHT,
+		STATUS_ERROR
+	};
+
+	int statusType = 0;
+	FString curStatus;
+	float statusTimer = 0.f;
 
 	struct {
 		int wndPosX = 100;
@@ -292,6 +329,7 @@ public:
 		int wndWidth = 1600;
 		int wndHeight = 900;
 		int wndMode = 1;
+		FString theme;
 	} editorCfg;
 
 	enum ECopyBufferData
@@ -307,12 +345,10 @@ public:
 		FClass* type = nullptr;
 	} copyBuffer;
 
-	FSceneOutlinerTree outlinerData;
-
 private:
 	CCameraController* camController;
 
-	CPropertyEditor* propertyEditor;
+	CPropertiesWidget* propertyEditor;
 	CConsoleWidget* consoleWidget;
 	CInputOutputWidget* ioWidget;
 	CProjectSettingsWidget* projSettingsWidget;

@@ -20,16 +20,18 @@ class IDepthBuffer;
 struct aiNode;
 struct aiScene;
 struct aiBone;
+struct aiAnimation;
 
 struct FMeshFile
 {
 	FString file;
 	FString name;
 	FTransform transform;
-	FVector rotation; // fuck quaterions man.
+	FVector rotation; // fuck quaternions man.
 
 	Assimp::Importer importer;
 	const aiScene* scene = nullptr;
+	bool bLoadFailed = false; // wether the aiScene failed to load.
 };
 
 void LoadMeshFile(FMeshFile& m);
@@ -54,9 +56,8 @@ struct FModelCompileSettings
 
 struct FAnimationImportSettings
 {
-	FString outputFolder;
-
-
+	FString mod;
+	FString path;
 };
 
 class CModelCompiler
@@ -79,7 +80,7 @@ public:
 
 	void SaveModel(FMeshFile* meshFiles, int numMeshFiles);
 
-	bool ImportAnimations(FMeshFile* meshFiles, int numMeshFiles, const FAnimationImportSettings& settings);
+	bool ExportAnimation(aiAnimation* anim, const FAnimationImportSettings& settings);
 
 private:
 	void CompileNode(FMeshFile& file, const aiScene* scene, aiNode* node, SizeType& meshOffset, SizeType& matOffset, TArray<TPair<int, aiBone*>>& outBones);
@@ -154,6 +155,9 @@ private:
 
 	FString openMdlId;
 	FString saveMdlId;
+
+	// animation to be exported
+	aiAnimation* exportAnim = nullptr;
 
 	funcSaveCallback saveCallback = nullptr;
 

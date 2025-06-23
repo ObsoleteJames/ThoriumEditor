@@ -37,6 +37,9 @@ void CCameraController::Update(double dt)
 		if (move.Magnitude() != 0.f)
 		{
 			float targetSpeed = GetCameraSpeed(cameraSpeed);
+			if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
+				targetSpeed *= 2;
+
 			if (curSpeed < targetSpeed)
 				curSpeed += (5.f * (float)cameraSpeed * (float)dt);
 			else

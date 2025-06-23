@@ -275,7 +275,7 @@ void ThoriumEditor::SetTheme(const FString& theme)
 	}
 
 	if (!t)
-		return;
+		t = &themes[0];
 
 	ImGuiStyle& style = ImGui::GetStyle();
 	ImVec4* colors = style.Colors;
@@ -325,16 +325,29 @@ FEditorTheme& ThoriumEditor::AddTheme(const FString& name)
 	th.name = name;
 
 	//CFileSystem::FindMod("Engine")->CreateDir("editor/themes/" + name);
-	th.file = CFileSystem::FindMod("Eninge")->CreateFile("editor/themes/" + name + "theme.cfg");
+	th.file = CFileSystem::FindMod("Engine")->CreateFile("editor/themes/" + name + "/theme.cfg");
 
 	SaveTheme(th);
 
 	return th;
 }
 
-void ThoriumEditor::SaveTheme(const FEditorTheme& theme)
+void ThoriumEditor::SaveTheme(FEditorTheme& theme)
 {
 	FKeyValue kv(theme.file->FullPath());
+
+	ImGuiStyle& style = ImGui::GetStyle();
+	memcpy((void*)theme.colors, style.Colors, sizeof(ImVec4) * ImGuiCol_COUNT);
+
+	theme.windowPadding = style.WindowPadding;
+	theme.framePadding = style.FramePadding;
+	theme.cellPadding = style.CellPadding;
+	theme.itemSpacing = style.ItemSpacing;
+	theme.windowRounding = style.WindowRounding;
+	theme.childRounding = style.ChildRounding;
+	theme.frameRounding = style.FrameRounding;
+	theme.grabRounding = style.GrabRounding;
+	theme.tabRounding = style.TabRounding;
 
 	kv.SetValue("name", theme.name);
 
@@ -360,4 +373,6 @@ void ThoriumEditor::SaveTheme(const FEditorTheme& theme)
 	kv.SetValue("frame_rounding", std::to_string(theme.frameRounding));
 	kv.SetValue("grab_rounding", std::to_string(theme.grabRounding));
 	kv.SetValue("tab_rounding", std::to_string(theme.tabRounding));
+
+	kv.Save();
 }

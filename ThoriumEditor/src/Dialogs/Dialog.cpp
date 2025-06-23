@@ -28,6 +28,7 @@ int CDialogWnd::Exec()
 	window->SetSwapChain(swapChain);
 
 	auto* mainContext = ImGui::GetCurrentContext();
+	auto* mainWindow = mainContext->CurrentWindow;
 	context = ImGui::CreateContext(mainContext->IO.Fonts);
 	ImGui::SetCurrentContext(context);
 

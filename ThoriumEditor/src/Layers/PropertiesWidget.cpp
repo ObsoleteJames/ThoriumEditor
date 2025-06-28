@@ -51,6 +51,16 @@ void CPropertiesWidget::OnUIRender()
 
 		ImGui::BeginDisabled(selectedEntities.Size() == 0);
 
+		bool bEnabled = false;
+		if (selectedEntities.Size() > 0)
+			bEnabled = selectedEntities[0]->bIsEnabled;
+
+		if (ImGui::Checkbox("##entIsEnabled", &bEnabled))
+			selectedEntities[0]->bIsEnabled = bEnabled;
+
+		ImGui::SetItemTooltip("Is Enabled");
+
+		ImGui::SameLine();
 		if (ImGui::InputText("Name##_editorPropertyEditor", editName, 64))
 		{
 			selectedEntities[0]->SetName(editName);

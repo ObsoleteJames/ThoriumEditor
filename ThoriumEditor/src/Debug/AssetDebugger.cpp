@@ -22,10 +22,20 @@ void CAssetDebugger::OnUIRender()
 			bool bSelectedExists = false;
 			for (auto& it : assets)
 			{
+				bool bLoaded = CAssetManager::IsAssetLoaded(it.first);
+
+				if (bLoaded)
+					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.71f, 0.81f, 1.f, 1.f));
+
+				ImGui::PushID(it.first);
 				if (ImGui::Selectable(it.second.file->Name().c_str(), selected == it.first))
 				{
 					selected = it.first;
 				}
+				ImGui::PopID();
+
+				if (bLoaded)
+					ImGui::PopStyleColor();
 
 				if (selected == it.first)
 					bSelectedExists = true;
@@ -77,6 +87,28 @@ void CAssetDebugger::OnUIRender()
 					ImGui::Text("Asset Version");
 					ImGui::TableNextColumn();
 					ImGui::Text(FString::ToString(data->version));
+
+					bool bLoaded = CAssetManager::IsAssetLoaded(data->id);
+					if (bLoaded)
+					{
+						CAsset* asset = CAssetManager::GetAsset(data->type, data->id);
+
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::Text("Users");
+						ImGui::TableNextColumn();
+						ImGui::Text(FString::ToString(asset->GetUserCount()));
+
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::Text("LODs");
+						ImGui::TableNextColumn();
+						FString lods;
+						for (int i = 0; i < 8; i++)
+							lods += asset->IsLodLoaded(i) ? "1" : "0";
+						ImGui::Text(lods);
+						
+					}
 				}
 				ImGui::EndTable();
 			}

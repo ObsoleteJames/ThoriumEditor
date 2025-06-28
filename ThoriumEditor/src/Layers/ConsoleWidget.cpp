@@ -36,7 +36,7 @@ void CConsoleWidget::OnUIRender()
 		static char buffInput[48] = { '\0' };
 		static char buffFilter[64] = { '\0' };
 
-		if (ImGui::BeginChild("consloleScrollArea", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
+		if (ImGui::BeginChild("consloleScrollArea", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true, ImGuiWindowFlags_AlwaysUseWindowPadding))
 		{
 			for (auto& msg : CConsole::GetMsgCache())
 			{

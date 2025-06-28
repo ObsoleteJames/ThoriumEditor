@@ -885,8 +885,18 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 	ImGui::Text(type.c_str());
 
 	ImGui::TableNextColumn();
-	if (ImGui::ButtonClear(("Visible##" + FString::ToString(ent->EntityId())).c_str()))
+
+	ITexture2D* imgEyeOpen = ThoriumEditor::GetThemeIcon("eye-open");
+	ITexture2D* imgEyeClosed = ThoriumEditor::GetThemeIcon("eye-crossed");
+
+	//if (ImGui::ButtonClear(("Visible##" + FString::ToString(ent->EntityId())).c_str()))
+	ImGui::PushID((SizeType)ent);
+	if (ImGui::ImageButtonClear("visible", TEX_VIEW((ent->bIsVisible ? imgEyeOpen : imgEyeClosed)), ImVec2(16, 12), 0, ImVec2(0,0), ImVec2(1,1), ImVec4(1, 1, 1, ent->bIsVisible ? 1.f : 0.6f)))
 		ent->bIsVisible ^= 1;
+
+	ImGui::SetItemTooltip("Is Visible");
+
+	ImGui::PopID();
 	//ImGui::SameLine();
 	//if (ImGui::ButtonClear("Selectable"))
 	//{

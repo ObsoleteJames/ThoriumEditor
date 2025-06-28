@@ -256,7 +256,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 
 	ImGui::SetCursorScreenPos(cursor + ImVec2(0, 32 + 8));
 
-	if (ImGui::BeginChild("assetBrowserView", ImVec2(sizeR - 8, height), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
+	if (ImGui::BeginChild("assetBrowserView", ImVec2(sizeR - 8, height), true, ImGuiWindowFlags_AlwaysUseWindowPadding))
 	{
 		bool bHovered = ImGui::IsItemHovered();
 		/*if (ImGui::Button("<##_browserBack") || (ImGui::IsKeyPressed(ImGuiKey_MouseX1)))

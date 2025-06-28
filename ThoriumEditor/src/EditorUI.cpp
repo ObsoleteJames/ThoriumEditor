@@ -843,7 +843,7 @@ void CEditorEngine::OutlinerDrawEntity(CEntity* ent, bool bRoot)
 		else
 			SetSelectedEntity(ent);
 	}
-	ImGui::PopStyleColor();
+	//ImGui::PopStyleColor();
 
 	if (ImGui::BeginPopupContextItem())
 	{

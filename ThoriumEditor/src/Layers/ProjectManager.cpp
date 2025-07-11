@@ -43,7 +43,9 @@ void CProjectManager::Render()
 				OpenProject(selectedProject);
 			ImGui::EndDisabled();
 
-			if (ImGui::BeginChild("projectlist", ImVec2(0, 0), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
+			ImVec2 size = ImGui::GetContentRegionAvail();
+
+			if (ImGui::BeginChild("projectlist", ImVec2(0, size.y - 32), false, ImGuiWindowFlags_AlwaysUseWindowPadding))
 			{
 				ImVec2 itemSize = ImVec2(48 + (48 * 2) / 2, 80 + (80 * 2) / 2);
 				ImVec2 contentSize = ImGui::GetContentRegionAvail();
@@ -64,6 +66,8 @@ void CProjectManager::Render()
 
 				ImGui::EndChild();
 			}
+
+			ImGui::Checkbox("Show at startup", &gEditorEngine()->bShowProjectBrowserAtStartup);
 		}
 		else if (mode == PROJECT_MODE_CREATE)
 		{

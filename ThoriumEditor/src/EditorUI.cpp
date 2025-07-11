@@ -160,7 +160,7 @@ void CEditorEngine::UpdateEditor()
 	if (menuAction != 0)
 		menuAction = 0;
 
-	if (bOpenProj && gRenderStats.frameCount > 2)
+	if (bOpenProj && gRenderStats.frameCount > 4)
 	{
 		CProjectManager::Open(0);
 		bOpenProj = false;
@@ -655,11 +655,13 @@ void CEditorEngine::SetupMenu()
 	//menu->OnClicked = [=]() { gEditorEngine()->bImGuiDemo = menu->Checked(); };
 	RegisterMenu(menu, "View");
 	menuViewOutliner = menu;
+	menu->bChecked = true;
 
 	menu = new CEditorMenu("Asset Browser", true);
 	//menu->OnClicked = [=]() { gEditorEngine()->bViewAssetBrowser = menu->Checked(); };
 	RegisterMenu(menu, "View");
 	menuAssetBrowser = menu;
+	menu->bChecked = true;
 
 	// --- DEBUG ---
 	menu = new CEditorMenu("ImGui Demo", true);
@@ -700,6 +702,7 @@ void CEditorEngine::SetupEditorDocking()
 	ImGui::DockBuilderDockWindow("Scene##_gameSceneViewport", dockspace_id);
 	ImGui::DockBuilderDockWindow("Scene Outliner##_editorSceneOutliner", dock1);
 	ImGui::DockBuilderDockWindow("Properties##_editorPropertyEditor", dock3);
+	ImGui::DockBuilderDockWindow("Scene Settings", dock3);
 	ImGui::DockBuilderDockWindow("Input/Output##_editorIOWidget", dock3);
 	ImGui::DockBuilderDockWindow("Asset Browser##_editorAssetBrowser", dock4);
 	ImGui::DockBuilderDockWindow("Console##_editorConsoleWidget", dock4);

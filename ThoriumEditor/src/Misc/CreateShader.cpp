@@ -23,13 +23,13 @@ public:
 		if (auto i = shaderName.FindLastOf("\\/"); i != -1)
 			shaderName.Erase(shaderName.begin(), shaderName.begin() + i + 1);
 
-		FString sdkDir = shader->File()->GetSdkPath();
+		FString sdkDir = shader->File()->GetSdkPath(".hlsl");
 		if (auto i = sdkDir.FindLastOf("\\/"); i != -1)
 			sdkDir.Erase(sdkDir.begin() + i, sdkDir.end());
 
 		std::filesystem::create_directories(sdkDir.c_str());
 
-		std::ofstream sdkStream(shader->File()->GetSdkPath().c_str());
+		std::ofstream sdkStream(shader->File()->GetSdkPath(".hlsl").c_str());
 		if (!sdkStream.is_open())
 			return;
 

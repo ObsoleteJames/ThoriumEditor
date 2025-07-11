@@ -17,7 +17,7 @@ public:
 
 	void Invoke(FBrowserActionData* data) override
 	{
-		ImGui::BeginDisabled(!FFileHelper::FileExists(data->file->GetSdkPath()));
+		ImGui::BeginDisabled(!FFileHelper::FileExists(data->file->GetSdkPath(".hlsl")));
 		
 		if (ImGui::MenuItem("Compile Shader"))
 		{
@@ -27,7 +27,7 @@ public:
 
 		if (ImGui::MenuItem("Edit Shader"))
 		{
-			CEditorEngine::OSOpenFile(data->file->GetSdkPath());
+			CEditorEngine::OSOpenFile(data->file->GetSdkPath(".hlsl"));
 		}
 
 		ImGui::EndDisabled();

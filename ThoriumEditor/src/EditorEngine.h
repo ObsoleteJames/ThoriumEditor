@@ -307,6 +307,8 @@ public:
 	CEditorMenu* menuCompileProjCode = nullptr;
 	CEditorMenu* menuCreateCppClass = nullptr;
 
+	bool bShowProjectBrowserAtStartup = true;
+
 	bool bOpenProj = false;
 
 	double imguiRenderTime;

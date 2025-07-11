@@ -140,18 +140,9 @@ void CEditorEngine::Init()
 	inputManager->SetInputWindow(gameWindow);
 	inputManager->SetShowCursor(true);
 
-	//if (!inputManager)
-	//{
-	//	inputManager = CreateObject<CInputManager>();
-	//	inputManager->LoadConfig();
-	//}
-
-	//inputManager->SetInputWindow(gameWindow);
-	//inputManager->SetShowCursor(true);
-
 	viewportWidth = 1280;
 	viewportHeight = 720;
-	sceneFrameBuffer = gGHI->CreateFrameBuffer(1280, 720, TEXTURE_FORMAT_RGBA8_UNORM);
+	sceneFrameBuffer = gGHI->CreateFrameBuffer(640, 480, TEXTURE_FORMAT_RGBA8_UNORM);
 	//sceneDepthBuffer = gRenderer->CreateDepthBuffer({ 1280, 720, TH_DBF_D24_S8, 1, false });
 
 	CFileSystem::OSCreateDirectory(OSGetDataPath() + "/ThoriumEngine/EditorConfig");
@@ -180,16 +171,8 @@ void CEditorEngine::Init()
 
 	Events::PostLevelChange.Bind(this, &CEditorEngine::OnLevelChange);
 
-	//if (bProjectLoaded)
-	//{
-	//	assetBrowser->SetDir(activeGame.mod->Name(), FString());
-	//	LoadWorld(ToFString(activeGame.startupScene));
-	//}
-	
-	//bOpenProj = !bProjectLoaded; // Uncomment this to make the project window open at startup
-
-	//uiMat = CreateObject<CMaterial>();
-	//uiMat->SetShader("")
+	if (bShowProjectBrowserAtStartup)
+		bOpenProj = !bProjectLoaded;
 
 	LoadWorld();
 }
@@ -463,6 +446,8 @@ void CEditorEngine::LoadEditorConfig()
 	bSelectionBoundingBox = kv.GetValue("show_selection_boundingbox")->AsBool(true);
 	bSelectionOverlay = kv.GetValue("show_selection_overlay")->AsBool(true);
 
+	bShowProjectBrowserAtStartup = kv.GetValue("show_projectbrowser_startup")->AsBool(true);
+
 	CLayer::LoadConfig(kv);
 
 	KVCategory* projs = kv.GetCategory("projects", true);
@@ -502,6 +487,8 @@ void CEditorEngine::SaveEditorConfig()
 
 	kv.SetValue("show_selection_boundingbox", FString::ToString((int)bSelectionBoundingBox));
 	kv.SetValue("show_selection_overlay", FString::ToString((int)bSelectionOverlay));
+
+	kv.SetValue("show_projectbrowser_startup", FString::ToString((int)bShowProjectBrowserAtStartup));
 
 	CLayer::SaveConfig(kv);
 
@@ -624,14 +611,14 @@ void CEditorEngine::GenerateCppClass(const FString& path, const FString& classNa
 void CEditorEngine::InitEditorData()
 {
 	TArray<FVertex> boxVerts = {
-		{ { -1, 1, 1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ { 1, 1, 1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ { -1, 1, -1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ { 1, 1, -1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ {-1, -1, 1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ { 1, -1, 1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ { -1, -1, -1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		{ { 1, -1, -1 }, {}, {}, {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+		{ { -1, 1, 1 }, {}, {}, {}, 0, 0, 0, 0 },
+		{ { 1, 1, 1 }, {}, {}, {}, 0, 0, 0, 0 },
+		{ { -1, 1, -1 }, {}, {}, {}, 0, 0, 0, 0 },
+		{ { 1, 1, -1 }, {}, {}, {}, 0, 0, 0, 0 },
+		{ {-1, -1, 1 }, {}, {}, {}, 0, 0, 0, 0 },
+		{ { 1, -1, 1 }, {}, {}, {}, 0, 0, 0, 0 },
+		{ { -1, -1, -1 }, {}, {}, {}, 0, 0, 0, 0 },
+		{ { 1, -1, -1 }, {}, {}, {}, 0, 0, 0, 0 }
 	};
 
 	TArray<uint> boxInds = {
@@ -892,7 +879,7 @@ bool CEditorEngine::SaveScene()
 
 	gWorld->Save();
 
-	CFStream sdkStream = gWorld->GetScene()->File()->GetSdkStream("wb");
+	CFStream sdkStream = gWorld->GetScene()->File()->GetSdkStream(".meta", "wb");
 	if (sdkStream.IsOpen())
 	{
 		FVector camPos = editorCamera->position;
@@ -1083,7 +1070,7 @@ void CEditorEngine::OnLevelChange()
 
 		if (gWorld->GetScene() && gWorld->GetScene()->File())
 		{
-			CFStream sdkStream = gWorld->GetScene()->File()->GetSdkStream("rb");
+			CFStream sdkStream = gWorld->GetScene()->File()->GetSdkStream(".meta", "rb");
 			if (sdkStream.IsOpen())
 			{
 				FVector camPos;

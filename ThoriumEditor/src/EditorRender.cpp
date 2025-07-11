@@ -70,7 +70,8 @@ void CEditorEngine::DoEditorRender()
 			meshes.Add({ proxy, FMeshBuilder() });
 			FMeshBuilder& mesh = meshes.last()->Value;
 
-			proxy->GetDynamicMeshes(mesh);
+			proxy->GetStaticMeshes(mesh);
+			proxy->GetSkinnedMeshes(mesh);
 		}
 	}
 
@@ -105,7 +106,7 @@ void CEditorEngine::DoEditorRender()
 			//if (!_shader)
 			//	_shader = mesh.mat->GetVsShader(ShaderType_ForwardPass);
 			//gGHI->SetVsShader(_shader);
-			gGHI->SetVsShader(shaderSelectOverlay->GetShader(ShaderType_Vertex));
+			gGHI->SetVsShader(shaderSelectOverlay->GetShader(mesh.mesh.bSkinnedMesh ? ShaderType_VertexSkinned : ShaderType_Vertex));
 			gGHI->SetPsShader(shaderSelectOverlay->GetShader(ShaderType_Fragment));
 			
 			gGHI->DrawMesh(&mesh);

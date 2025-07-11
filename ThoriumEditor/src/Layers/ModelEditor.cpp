@@ -97,7 +97,7 @@ void CModelEditor::SetModel(CModelAsset* mdl)
 
 	if (mdl->File())
 	{
-		FKeyValue kv(mdl->File()->GetSdkPath());
+		FKeyValue kv(mdl->File()->GetSdkPath(".meta"));
 		if (kv.IsOpen())
 		{
 			for (auto* c : kv.GetCategories())
@@ -1303,7 +1303,7 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 					if (weight.mVertexId >= mesh.numVertexData)
 						continue;
 
-					FVertex& vertex = mesh.vertexData[weight.mVertexId];
+					FSkinnedVertex& vertex = ((FSkinnedVertex*)mesh.vertexData)[weight.mVertexId];
 
 					for (int x = 0; x < 4; x++)
 					{
@@ -1322,8 +1322,12 @@ bool CModelCompiler::Compile(CModelAsset* _mdl, FMeshFile* meshFiles, int numMes
 			// Resolve bone parents
 			for (int i = 0; i < mdl->skeleton.bones.Size(); i++)
 			{
+				if (i >= bones.Size())
+					continue;
+
 				aiNode* parent = bones[i].Value->mNode->mParent;
-				mdl->skeleton.bones[i].parent = mdl->GetBoneIndex(parent->mName.C_Str());
+				if (parent)
+					mdl->skeleton.bones[i].parent = mdl->GetBoneIndex(parent->mName.C_Str());
 			}
 
 			for (int i = 0; i < mdl->meshes.Size(); i++)
@@ -1407,52 +1411,108 @@ void CModelCompiler::CompileNode(FMeshFile& file, const aiScene* scene, aiNode* 
 		else if (mesh->mPrimitiveTypes == aiPrimitiveType_POINT)
 			fmesh.topologyType = FMesh::TOPOLOGY_POINTS;
 
-		TArray<FVertex> vertices;
 		TArray<uint> indices;
-
-		vertices.Reserve(mesh->mNumVertices);
-		indices.Reserve(mesh->mNumFaces * 3);
-
-		for (uint i = 0; i < mesh->mNumVertices; i++)
+		fmesh.bSkinnedMesh = mesh->mNumBones > 0;
+		if (mesh->mNumBones > 0)
 		{
-			FVertex v;
-			v.bones[0] = -1;
-			v.bones[1] = -1;
-			v.bones[2] = -1;
-			v.bones[3] = -1;
-			v.boneInfluence[0] = 0.f;
-			v.boneInfluence[1] = 0.f;
-			v.boneInfluence[2] = 0.f;
-			v.boneInfluence[3] = 0.f;
+			TArray<FSkinnedVertex> vertices;
 
-			auto vPos = mesh->mVertices[i];
-			auto vNormal = mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
-			auto vTangent = mesh->mTangents ? mesh->mTangents[i] : aiVector3D(1, 0, 0);
+			vertices.Reserve(mesh->mNumVertices);
+			indices.Reserve(mesh->mNumFaces * 3);
 
-			vPos *= transform;
-			vNormal *= transform;
-			vTangent *= transform;
-
-			v.position = *(FVector*)&vPos;
-			if (mesh->mNormals)
-				v.normal = *(FVector*)&vNormal;
-			if (mesh->mTangents)
-				v.tangent = *(FVector*)&vTangent;
-			if (mesh->GetNumColorChannels() > 0)
-				v.color = *(FVector*)&mesh->mColors[0][i];
-
-			if (mesh->GetNumUVChannels() > 0)
+			for (uint i = 0; i < mesh->mNumVertices; i++)
 			{
-				v.uv1[0] = mesh->mTextureCoords[0][i].x;
-				v.uv1[1] = mesh->mTextureCoords[0][i].y;
-			}
-			if (mesh->GetNumUVChannels() > 1)
-			{
-				v.uv2[0] = mesh->mTextureCoords[1][i].x;
-				v.uv2[1] = mesh->mTextureCoords[1][i].y;
+				FSkinnedVertex v;
+				v.bones[0] = -1;
+				v.bones[1] = -1;
+				v.bones[2] = -1;
+				v.bones[3] = -1;
+				v.boneInfluence[0] = 0.f;
+				v.boneInfluence[1] = 0.f;
+				v.boneInfluence[2] = 0.f;
+				v.boneInfluence[3] = 0.f;
+
+				auto vPos = mesh->mVertices[i];
+				auto vNormal = mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
+				auto vTangent = mesh->mTangents ? mesh->mTangents[i] : aiVector3D(1, 0, 0);
+
+				vPos *= transform;
+				vNormal *= transform;
+				vTangent *= transform;
+
+				v.position = *(FVector*)&vPos;
+				if (mesh->mNormals)
+					v.normal = *(FVector*)&vNormal;
+				if (mesh->mTangents)
+					v.tangent = *(FVector*)&vTangent;
+				if (mesh->GetNumColorChannels() > 0)
+					v.color = *(FVector*)&mesh->mColors[0][i];
+
+				if (mesh->GetNumUVChannels() > 0)
+				{
+					v.uv1[0] = mesh->mTextureCoords[0][i].x;
+					v.uv1[1] = mesh->mTextureCoords[0][i].y;
+				}
+				if (mesh->GetNumUVChannels() > 1)
+				{
+					v.uv2[0] = mesh->mTextureCoords[1][i].x;
+					v.uv2[1] = mesh->mTextureCoords[1][i].y;
+				}
+
+				vertices.Add(v);
 			}
 
-			vertices.Add(v);
+			fmesh.vertexData = (FVertex*)malloc(vertices.Size() * sizeof(FSkinnedVertex));
+			fmesh.numVertexData = vertices.Size();
+
+			memcpy(fmesh.vertexData, vertices.Data(), vertices.Size() * sizeof(FSkinnedVertex));
+		}
+		else
+		{
+			TArray<FVertex> vertices;
+
+			vertices.Reserve(mesh->mNumVertices);
+			indices.Reserve(mesh->mNumFaces * 3);
+
+			for (uint i = 0; i < mesh->mNumVertices; i++)
+			{
+				FVertex v;
+
+				auto vPos = mesh->mVertices[i];
+				auto vNormal = mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
+				auto vTangent = mesh->mTangents ? mesh->mTangents[i] : aiVector3D(1, 0, 0);
+
+				vPos *= transform;
+				vNormal *= transform;
+				vTangent *= transform;
+
+				v.position = *(FVector*)&vPos;
+				if (mesh->mNormals)
+					v.normal = *(FVector*)&vNormal;
+				if (mesh->mTangents)
+					v.tangent = *(FVector*)&vTangent;
+				if (mesh->GetNumColorChannels() > 0)
+					v.color = *(FVector*)&mesh->mColors[0][i];
+
+				if (mesh->GetNumUVChannels() > 0)
+				{
+					v.uv1[0] = mesh->mTextureCoords[0][i].x;
+					v.uv1[1] = mesh->mTextureCoords[0][i].y;
+				}
+				if (mesh->GetNumUVChannels() > 1)
+				{
+					v.uv2[0] = mesh->mTextureCoords[1][i].x;
+					v.uv2[1] = mesh->mTextureCoords[1][i].y;
+				}
+
+				vertices.Add(v);
+			}
+
+			fmesh.vertexData = (FVertex*)malloc(vertices.Size() * sizeof(FVertex));
+			fmesh.numVertexData = vertices.Size();
+			fmesh.numVertices = vertices.Size();
+
+			memcpy(fmesh.vertexData, vertices.Data(), vertices.Size() * sizeof(FVertex));
 		}
 
 		for (uint i = 0; i < mesh->mNumFaces; i++)
@@ -1477,31 +1537,16 @@ void CModelCompiler::CompileNode(FMeshFile& file, const aiScene* scene, aiNode* 
 		for (uint i = 0; i < mesh->mNumBones; i++)
 		{
 			auto* b = mesh->mBones[i];
-			/*bool bExists = false;
-			for (auto& bone : outBones)
-			{
-				if (bone.Value == b)
-				{
-					bExists = true;
-					break;
-				}
-			}
 
-			if (!bExists)*/
 			outBones.Add({ (int)mdl->meshes.Size(), b });
 		}
-
-		fmesh.vertexData = (FVertex*)malloc(vertices.Size() * sizeof(FVertex));
-		fmesh.numVertexData = vertices.Size();
-
-		memcpy(fmesh.vertexData, vertices.Data(), vertices.Size() * sizeof(FVertex));
 
 		fmesh.indexData = (uint*)malloc(indices.Size() * sizeof(uint));
 		fmesh.numIndexData = indices.Size();
 
 		memcpy(fmesh.indexData, indices.Data(), indices.Size() * sizeof(uint));
 
-		fmesh.numVertices = vertices.Size();
+		//fmesh.numVertices = vertices.Size();
 		fmesh.numIndices = indices.Size();
 
 		//fmesh.vertexBuffer = gRenderer->CreateVertexBuffer(vertices);
@@ -1573,7 +1618,7 @@ bool CModelCompiler::GenerateConvexCollision()
 
 void CModelCompiler::SaveModel(FMeshFile* meshFiles, int numMeshFiles)
 {
-	FKeyValue kv(mdl->File()->GetSdkPath());
+	FKeyValue kv(mdl->File()->GetSdkPath(".meta"));
 	for (int i = 0; i < numMeshFiles; i++)
 	{
 		auto* cat = kv.GetCategory(meshFiles[i].name + "_" + FString::ToString(i), true);
@@ -1596,12 +1641,14 @@ void CModelCompiler::SaveModel(FMeshFile* meshFiles, int numMeshFiles)
 bool CModelCompiler::ExportAnimation(aiAnimation* anim, const FAnimationImportSettings& settings)
 {
 	bool bNew = false;
-	TObjectPtr<CAnimation> out = CAssetManager::GetAsset<CMaterial>(settings.path);
+	TObjectPtr<CAnimation> out = CAssetManager::GetAsset<CAnimation>(settings.path + ".thasset");
 	if (!out.IsValid())
 	{
 		bNew = true;
 		out = CreateObject<CAnimation>();
 	}
+
+	out->ClearChannels();
 
 	//out->SetFrameRate(anim->mTicksPerSecond);
 	for (int i = 0; i < anim->mNumChannels; i++)
@@ -1612,20 +1659,36 @@ bool CModelCompiler::ExportAnimation(aiAnimation* anim, const FAnimationImportSe
 		
 		//int keyFrames = FMath::Max(FMath::Max(anim->mChannels[i]->mNumPositionKeys, anim->mChannels[i]->mNumRotationKeys), anim->mChannels[i]->mScalingKeys);
 
+		TMap<float, FKeyframe> keyframes;
+
 		for (int ii = 0; ii < anim->mChannels[i]->mNumPositionKeys; ii++)
 		{
 			auto& key = anim->mChannels[i]->mPositionKeys[ii];
-			channel->keyframes[ii].keyBone.position = *(FVector*)&key.mValue;
+			//channel->keyframes.last()->time = key.mTime;
+			//channel->keyframes.last()->keyBone.position = *(FVector*)&key.mValue;
+
+			keyframes[key.mTime / 33.3333f].keyBone.position = *(FVector*)&key.mValue;
 		}
 		for (int ii = 0; ii < anim->mChannels[i]->mNumRotationKeys; ii++)
 		{
 			auto& key = anim->mChannels[i]->mRotationKeys[ii];
-			channel->keyframes[ii].keyBone.rotation = *(FQuaternion*)&key.mValue;
+			//channel->keyframes[ii].keyBone.rotation = *(FQuaternion*)&key.mValue;
+			FQuaternion value = FQuaternion(key.mValue.x, key.mValue.y, key.mValue.z, key.mValue.w);
+			keyframes[key.mTime / 33.3333f].keyBone.rotation = value;
 		}
 		for (int ii = 0; ii < anim->mChannels[i]->mNumScalingKeys; ii++)
 		{
 			auto& key = anim->mChannels[i]->mScalingKeys[ii];
-			channel->keyframes[ii].keyBone.scale = *(FVector*)&key.mValue;
+			//channel->keyframes[ii].keyBone.scale = *(FVector*)&key.mValue;
+			keyframes[key.mTime / 33.3333f].keyBone.scale = *(FVector*)&key.mValue;
+		}
+
+		for (auto& k : keyframes)
+		{
+			channel->keyframes.Add();
+			auto& frame = channel->keyframes.last();
+			frame->time = k.first;
+			frame->keyBone = k.second.keyBone;
 		}
 	}
 

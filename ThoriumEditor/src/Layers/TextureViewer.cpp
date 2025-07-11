@@ -67,7 +67,7 @@ void CTextureViewer::SetTexture(CTexture* t)
 	reimportSettings.filter = tex->FilterType();
 	reimportSettings.numMipMaps = tex->MipMapCount();
 
-	CFStream sdkStream = t->File()->GetSdkStream("rb");
+	CFStream sdkStream = t->File()->GetSdkStream(".meta", "rb");
 	if (sdkStream.IsOpen())
 	{
 		FString file;

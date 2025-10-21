@@ -91,6 +91,7 @@ void CEditorEngine::DoEditorRender()
 	gGHI->SetShaderBuffer(objectBuffer, 3);
 
 	gGHI->SetShaderResource(scene->preTranslucentBuff, 3);
+	gGHI->SetShaderResource(scene->depthTex, 2);
 
 	for (auto& obj : meshes)
 	{

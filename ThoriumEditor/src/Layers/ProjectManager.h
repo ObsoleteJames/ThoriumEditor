@@ -15,7 +15,7 @@ public:
 
 	void Render() override;
 
-	void CreateProject(const FString& name, const FString& path);
+	//void CreateProject(const FString& name, const FString& path);
 	void OpenProject(int index);
 
 	void AddProject();
@@ -31,4 +31,7 @@ private:
 	int selectedProject = -1;
 
 	int mode = 0;
+
+	FString projName;
+	FString projLoc;
 };

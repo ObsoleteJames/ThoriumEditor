@@ -9,6 +9,7 @@ class IPropertyEditor
 {
 public:
 	IPropertyEditor(int numObjects, CObject** object, void** data, const FProperty* property);
+	virtual ~IPropertyEditor() = default;
 
 	virtual void Render() = 0;
 

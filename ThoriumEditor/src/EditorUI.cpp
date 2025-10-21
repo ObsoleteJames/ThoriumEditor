@@ -219,12 +219,17 @@ void CEditorEngine::UpdateEditor()
 			}
 
 			ImGui::SameLine(); ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+
+			ImGui::SameLine(); ImGui::SetNextItemWidth(70); ImGui::DragFloat("Grid Snap", &translateSnap, 0.1f, 0.1f, FLT_MAX, "%.2f");
+			ImGui::SameLine(); ImGui::SetNextItemWidth(70); ImGui::DragFloat("Angle Snap", &rotationSnap, 5.f, 0.0f, FLT_MAX, "%.2f");
+			
+			ImGui::SameLine(); ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
 			ImGui::SameLine(); ImGui::Text("Select Mode:");
 			//ImGui::SameLine(); if (ImGui::Button("Object##selectMode")) SetSelectMode(ESelectMode_Object);
 			//ImGui::SameLine(); if (ImGui::Button("Skeleton##selectMode")) SetSelectMode(ESelectMode_Skeleton);
 			int selm = SelectMode();
 			const char* selectModeNames[] = { "Object", "Skeleton", "Vertices", "Faces", "Edges" };
-			ImGui::SameLine(); if (ImGui::TypeSelector("##", &selm, 5, selectModeNames, ImVec2(300, 24))) SetSelectMode((ESelectMode)selm);
+			ImGui::SameLine(); if (ImGui::TypeSelector("##", &selm, 5, selectModeNames, ImVec2(300, 24))) { SetSelectMode((ESelectMode)selm); }
 
 			//ImGui::SetCursorScreenPos(cursorPos + ImVec2(wndSize.x / 2 - 100, 4));
 			ITexture2D* btnPlay = ThoriumEditor::GetThemeIcon("btn-play");
@@ -534,6 +539,17 @@ void CEditorEngine::UpdateEditor()
 		ImGui::End();
 	}
 
+	if (menuAbout->bChecked)
+	{
+		if (ImGui::Begin("About", &menuAbout->bChecked))
+		{
+			ImGui::Text("Thorium Engine " ENGINE_VERSION);
+			ImGui::Text("Editor Version 1.0");
+			ImGui::Text("Build Type: " CONFIG_NAME "_" PLATFORM_NAME);
+		}
+		ImGui::End();
+	}
+
 	UpdateGizmos();
 }
 
@@ -632,7 +648,7 @@ void CEditorEngine::SetupMenu()
 	menuGenProjSln = menu;
 
 	menu = new CEditorMenu("Open Visual Studio Project", false);
-	menu->OnClicked = []() { CEditorEngine::OSOpenFile(CFileSystem::GetCurrentPath() + "/.project/" + gEditorEngine()->ActiveGame().name + "/Intermediate/Build/" + gEditorEngine()->ActiveGame().name + ".sln"); };
+	menu->OnClicked = []() { SSystem::OpenFile(CFileSystem::GetCurrentPath() + "/.project/" + gEditorEngine()->ActiveGame().name + "/Intermediate/Build/" + gEditorEngine()->ActiveGame().name + ".sln"); };
 	RegisterMenu(menu, "Code");
 	menuOpenProjSln = menu;
 
@@ -678,7 +694,8 @@ void CEditorEngine::SetupMenu()
 	menu = new CEditorMenu("Documentation", false);
 	RegisterMenu(menu, "Help");
 
-	menu = new CEditorMenu("About", false);
+	menu = new CEditorMenu("About", true);
+	menuAbout = menu;
 	RegisterMenu(menu, "Help");
 
 	//RegisterMenu(new CEditorMenu("Debug"));

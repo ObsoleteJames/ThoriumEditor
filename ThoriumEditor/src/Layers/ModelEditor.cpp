@@ -381,7 +381,7 @@ void CModelEditor::OnUIRender()
 								filter.Resize(90);
 								memcpy(filter.Data(), f, 90);
 
-								FString file = CEngine::OpenFileDialog(filter);
+								FString file = SSystem::OpenFileDialog(filter);
 								if (!file.IsEmpty())
 								{
 									mesh.file = file;

@@ -180,7 +180,7 @@ void CTextureViewer::OnUIRender()
 				ImGui::SameLine();
 				if (ImGui::Button("Browse"))
 				{
-					auto r = CEngine::OpenFileDialog();
+					auto r = SSystem::OpenFileDialog();
 					if (!r.IsEmpty())
 						texSourceFile = r;
 				}

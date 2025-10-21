@@ -145,11 +145,11 @@ void CEditorEngine::Init()
 	sceneFrameBuffer = gGHI->CreateFrameBuffer(640, 480, TEXTURE_FORMAT_RGBA8_UNORM);
 	//sceneDepthBuffer = gRenderer->CreateDepthBuffer({ 1280, 720, TH_DBF_D24_S8, 1, false });
 
-	CFileSystem::OSCreateDirectory(OSGetDataPath() + "/ThoriumEngine/EditorConfig");
+	CFileSystem::OSCreateDirectory(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig");
 
 	InitImGui();
 	ImGuiIO& io = ImGui::GetIO();
-	FString dataPath = OSGetDataPath() + "/ThoriumEngine/EditorConfig/imgui.ini";
+	FString dataPath = SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/imgui.ini";
 	dataPath.ReplaceAll('\\', '/');
 	io.IniFilename = (const char*)malloc(dataPath.Size() + 1);
 	memcpy((char*)io.IniFilename, dataPath.Data(), dataPath.Size() + 1);
@@ -418,6 +418,8 @@ void CEditorEngine::MakeProject(const FProject& project)
 		cfg.SetValue("engine_version", ENGINE_VERSION);
 		cfg.Save();
 	}
+
+	RegisterProject(project);
 }
 
 void CEditorEngine::LoadEditorConfig()
@@ -503,7 +505,7 @@ void CEditorEngine::SaveEditorConfig()
 
 void CEditorEngine::CompileProjectCode(int config)
 {
-	FString cmd = OSGetEnginePath(ENGINE_VERSION) + "/bin/win64/BuildTool.exe \"";
+	FString cmd = SSystem::GetEnginePath(ENGINE_VERSION) + "/bin/win64/BuildTool.exe \"";
 	cmd += CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Build.cfg\" ";
 #if PLATFORM_WINDOWS
 	cmd += "-x64 ";
@@ -530,23 +532,23 @@ void CEditorEngine::CompileProjectCode(int config)
 		break;
 	}
 
-	ExecuteProgram(cmd);
-	ExecuteProgram("cmake -A x64 -B \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\" \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate\"");
-	ExecuteProgram("cmake --build \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\"");
+	SSystem::Execute(cmd);
+	SSystem::Execute("cmake -A x64 -B \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\" \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate\"");
+	SSystem::Execute("cmake --build \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\"");
 }
 
 void CEditorEngine::GenerateProjectSln()
 {
-	FString cmd = OSGetEnginePath(ENGINE_VERSION) + "/bin/win64/BuildTool.exe \"";
+	FString cmd = SSystem::GetEnginePath(ENGINE_VERSION) + "/bin/win64/BuildTool.exe \"";
 	cmd += CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Build.cfg\" ";
 #if PLATFORM_WINDOWS
 	cmd += "-x64 ";
 #endif
 
-	ExecuteProgram(cmd);
+	SSystem::Execute(cmd);
 	using namespace std::chrono_literals;
 	std::this_thread::sleep_for(100ms);
-	ExecuteProgram("cmake -A x64 -B \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\" \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate\"");
+	SSystem::Execute("cmake -A x64 -B \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate/Build\" \"" + CFileSystem::GetCurrentPath() + "/.project/" + activeGame.name + "/Intermediate\"");
 }
 
 void CEditorEngine::GenerateCppClass(const FString& path, const FString& className, const FString& baseClass)
@@ -1406,7 +1408,20 @@ void CEditorEngine::UpdateGizmoEntity()
 	gameWindow->GetWindowPos(&wndX, &wndY);
 
 	ImGuizmo::SetRect(viewportX + (float)wndX, viewportY + (float)wndY, viewportWidth, viewportHeight);
-	bool r = ImGuizmo::Manipulate(editorCamera->view.v, editorCamera->projection.v, (ImGuizmo::OPERATION)gizmoMode, bUseLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD, manipulationMatrix.v, delta);
+	
+	bool bSnap = gizmoMode == ImGuizmo::TRANSLATE ? bSnapTranslate : (gizmoMode == ImGuizmo::ROTATE ? bSnapRotation : bSnapScale);
+	if (ImGui::IsKeyDown(ImGuiKey_ModCtrl))
+		bSnap ^= 1;
+
+	FVector snap;
+	if (gizmoMode == ImGuizmo::TRANSLATE)
+		snap = FVector(translateSnap);
+	if (gizmoMode == ImGuizmo::ROTATE)
+		snap = FVector(rotationSnap);
+	if (gizmoMode == ImGuizmo::SCALE)
+		snap = FVector(scaleSnap);
+
+	bool r = ImGuizmo::Manipulate(editorCamera->view.v, editorCamera->projection.v, (ImGuizmo::OPERATION)gizmoMode, bUseLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD, manipulationMatrix.v, delta, bSnap ? &snap.x : 0);
 
 	FTransform deltaTranform;
 	float _temp[3];
@@ -1425,7 +1440,12 @@ void CEditorEngine::UpdateGizmoEntity()
 				if (bUseLocal)
 					root->SetRotation(root->GetRotation() * deltaTranform.rotation);
 				else
+				{
 					root->SetRotation(deltaTranform.rotation * root->GetRotation());
+					
+					// also rotate the position accordingly
+					root->SetWorldPosition(deltaTranform.rotation.Rotate(root->GetWorldPosition() - centerPos) + centerPos);
+				}
 			}
 			if ((gizmoMode & ImGuizmo::SCALE) != 0)
 				root->SetScale(root->GetScale() * deltaTranform.scale);
@@ -1562,20 +1582,6 @@ void CEditorEngine::SetStatusError(const FString& text)
 {
 	statusType = STATUS_ERROR;
 	curStatus = text;
-}
-
-void CEditorEngine::OSOpenFileManager(const FString& path)
-{
-#if PLATFORM_WINDOWS
-	ShellExecuteA(NULL, "open", path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
-#endif
-}
-
-void CEditorEngine::OSOpenFile(const FString& path)
-{
-#if PLATFORM_WINDOWS
-	ShellExecuteA(NULL, "open", path.c_str(), NULL, NULL, SW_SHOWDEFAULT);
-#endif
 }
 
 void CEditorEngine::OSSetClipboardData(const FString& txt)

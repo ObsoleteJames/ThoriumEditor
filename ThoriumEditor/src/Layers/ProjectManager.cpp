@@ -19,6 +19,8 @@ bool CProjectManager::bIsOpen = false;
 CProjectManager::CProjectManager() : CDialogWnd("Project Manager")
 {
 	windowSize = { 670, 440 };
+
+	projLoc = SSystem::GetDocumentsPath() + "/Thorium Projects";
 }
 
 void CProjectManager::Render()
@@ -28,7 +30,12 @@ void CProjectManager::Render()
 		if (mode == PROJECT_MODE_OPEN)
 		{
 			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonHovered] * ImVec4(1, 1, 1, 0.8f));
-			ImGui::Button("New Project");
+			if (ImGui::Button("New Project"))
+			{
+				projLoc = SSystem::GetDocumentsPath() + "/Thorium Projects";
+				projName.Clear();
+				mode = PROJECT_MODE_CREATE;
+			}
 			ImGui::PopStyleColor();
 
 			ImGui::SameLine();
@@ -71,7 +78,36 @@ void CProjectManager::Render()
 		}
 		else if (mode == PROJECT_MODE_CREATE)
 		{
+			if (ImGui::Button("Back"))
+				mode = PROJECT_MODE_OPEN;
 
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 14));
+
+			ImVec2 size = ImGui::GetContentRegionAvail();
+
+			ImGui::InputText("Name##projname", &projName);
+			ImGui::InputText("Folder##projfolder", &projLoc);
+			ImGui::SameLine();
+			ImGui::Button("Browse");
+
+			ImGui::SetNextItemWidth(size.x - 6);
+
+			if (ImGui::Button("Create"))
+			{
+				FProject proj;
+				proj.name = projName;
+				proj.name.ReplaceAll(' ', '_');
+				proj.name.ReplaceAll('\t', '_');
+
+				proj.dir = projLoc + "/" + proj.name;
+				proj.displayName = projName;
+				proj.game = proj.name;
+
+				gEditorEngine()->MakeProject(proj);
+				mode = PROJECT_MODE_OPEN;
+			}
+
+			ImGui::PopStyleVar();
 		}
 
 	}
@@ -106,10 +142,6 @@ void CProjectManager::RenderProjectItem(const FProject& proj, int index)
 	ImGui::RenderTextWrapped(cursor + ImVec2(5, itemSize.x + 5), proj.displayName.c_str(), nullptr, itemSize.x - 5);
 }
 
-void CProjectManager::CreateProject(const FString& name, const FString& path)
-{
-}
-
 void CProjectManager::OpenProject(int i)
 {
 	gEditorEngine()->LoadProject(gEditorEngine()->availableProjects[i].dir);
@@ -118,7 +150,7 @@ void CProjectManager::OpenProject(int i)
 
 void CProjectManager::AddProject()
 {
-	if (FString folder = CEngine::OpenFolderDialog(); !folder.IsEmpty())
+	if (FString folder = SSystem::OpenFolderDialog(); !folder.IsEmpty())
 	{
 		FKeyValue kv(folder + "/config/project.cfg");
 		if (!kv.IsOpen())

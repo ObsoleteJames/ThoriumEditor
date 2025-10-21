@@ -21,7 +21,7 @@ int ParseArgs(FString& targetProj)
 			{
 				if (v->Value != ENGINE_VERSION)
 				{
-					FString enginePath = CEngine::OSGetEnginePath(v->Value);
+					FString enginePath = SSystem::GetEnginePath(v->Value.c_str());
 					THORIUM_ASSERT(!enginePath.IsEmpty(), "The engine version this project requires is not install on this computer.");
 
 					FString args = "";

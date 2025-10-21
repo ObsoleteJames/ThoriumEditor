@@ -9,6 +9,7 @@
 #include "Layers/EditorLog.h"
 #include "SceneOutlinerData.h"
 #include "EditorAddon.h"
+#include "System.h"
 
 #include "Rendering/Framebuffer.h"
 
@@ -110,7 +111,7 @@ public:
 	void MakeProject(const FProject& project);
 
 public:
-	inline static FString GetEditorConfigPath() { return OSGetDataPath() + "/ThoriumEngine/EditorConfig"; }
+	inline static FString GetEditorConfigPath() { return SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig"; }
 
 	void LoadEditorConfig();
 	void SaveEditorConfig();
@@ -221,9 +222,6 @@ private:
 	void AddOutlinerFolder(const FString& name, SizeType parent);
 
 public:
-	static void OSOpenFileManager(const FString& path);
-	static void OSOpenFile(const FString& path);
-
 	static void OSSetClipboardData(const FString& txt);
 	static FString OSGetClipboardData();
 
@@ -306,6 +304,8 @@ public:
 	CEditorMenu* menuOpenProjSln = nullptr;
 	CEditorMenu* menuCompileProjCode = nullptr;
 	CEditorMenu* menuCreateCppClass = nullptr;
+
+	CEditorMenu* menuAbout = nullptr;
 
 	bool bShowProjectBrowserAtStartup = true;
 

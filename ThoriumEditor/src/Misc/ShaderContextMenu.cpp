@@ -27,7 +27,7 @@ public:
 
 		if (ImGui::MenuItem("Edit Shader"))
 		{
-			CEditorEngine::OSOpenFile(data->file->GetSdkPath(".hlsl"));
+			SSystem::OpenFile(data->file->GetSdkPath(".hlsl"));
 		}
 
 		ImGui::EndDisabled();

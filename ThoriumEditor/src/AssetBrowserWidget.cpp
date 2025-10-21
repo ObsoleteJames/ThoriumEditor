@@ -390,7 +390,7 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 						ImGui::Separator();
 
 						if (ImGui::MenuItem("Show in Explorer"))
-							CEditorEngine::OSOpenFileManager(curMod->Path() + "/" + d->GetPath());
+							SSystem::OpenFileManager(curMod->Path() + "/" + d->GetPath());
 
 						ImGui::EndPopup();
 					}
@@ -532,10 +532,10 @@ void CAssetBrowserWidget::RenderUI(float width, float height)
 							ImGui::Separator();
 
 							if (ImGui::MenuItem("Show in Explorer"))
-								CEditorEngine::OSOpenFileManager(f->Mod()->Path() + "/" + f->Dir()->GetPath());
+								SSystem::OpenFileManager(f->Mod()->Path() + "/" + f->Dir()->GetPath());
 
 							if (ImGui::MenuItem("Open in External Program"))
-								CEditorEngine::OSOpenFile(f->FullPath());
+								SSystem::OpenFile(f->FullPath());
 						}
 
 						//if (type == (FAssetClass*)CShaderSource::StaticClass())
@@ -926,7 +926,7 @@ void CAssetBrowserWidget::ImportAsset()
 		}
 	}
 
-	TArray<FString> files = CEngine::OpenFilesDialog(filter);
+	TArray<FString> files = SSystem::OpenFilesDialog(filter.c_str());
 	if (files.Size() == 0)
 		return;
 

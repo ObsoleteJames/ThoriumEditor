@@ -38,9 +38,12 @@ void CEditorEngine::DoEditorRender()
 		return;
 
 	CRenderScene* scene = gWorld->GetRenderScene();
-	CCameraProxy* camera = scene->GetPrimaryCamera();
+	CCameraProxy* camera = viewportCams[0];
 
 	IFrameBuffer* renderTarget = camera->renderTarget ? camera->renderTarget : scene->frameBuffer;
+	if (!renderTarget)
+		return;
+
 	int viewWidth, viewHeight;
 	renderTarget->GetSize(viewWidth, viewHeight);
 
@@ -52,8 +55,12 @@ void CEditorEngine::DoEditorRender()
 
 	//static TArray<CPrimitiveComponent*> comps;
 
-	for (TObjectPtr<CEntity> ent : selectedEntities)
+	for (TObjectPtr<CObject> object : selectedObjects)
 	{
+		auto ent = Cast<CEntity>(object);
+		if (!ent)
+			continue;
+
 		auto& comps = ent->GetAllComponents();
 
 		for (auto c : comps)
@@ -85,7 +92,7 @@ void CEditorEngine::DoEditorRender()
 	sceneBuffer->Update(sizeof(FSceneInfoBuffer), &sceneInfo);
 
 	gGHI->SetViewport(0.f, 0.f, (float)viewWidth, (float)viewHeight);
-	gGHI->SetFrameBuffer(scene->frameBuffer);
+	gGHI->SetFrameBuffer(renderTarget);
 
 	gGHI->SetShaderBuffer(sceneBuffer, 1);
 	gGHI->SetShaderBuffer(objectBuffer, 3);

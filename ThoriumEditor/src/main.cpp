@@ -1,54 +1,17 @@
 
-#include <Util/KeyValue.h>
-#include "EditorEngine.h"
+#include "Editor.h"
+#include "Engine.h"
+#include "EditorWindow.h"
+#include "EngineThread.h"
 #include "Misc/CommandLine.h"
-#include "Console.h"
+#include "System.h"
+#include "ProjectManagerWindow.h"
+#include <Util/KeyValue.h>
+
+#include <QApplication>
 
 #ifdef _WIN32
-#include <Windows.h>
-#endif
-
-int ParseArgs(FString& targetProj)
-{
-	int r = 0;
-	const auto& args = FCommandLine::GetArgs();
-	if (args.Size() > 0)
-	{
-		if (SizeType i = args[0].Find(".thproj"); i != -1)
-		{
-			FKeyValue kv(args[0], EKeyValueType::KV_STANDARD_ASCII);
-			if (auto* v = kv.GetValue("engine_version", false); v != nullptr)
-			{
-				if (v->Value != ENGINE_VERSION)
-				{
-					FString enginePath = SSystem::GetEnginePath(v->Value.c_str());
-					THORIUM_ASSERT(!enginePath.IsEmpty(), "The engine version this project requires is not install on this computer.");
-
-					FString args = "";
-
-#ifdef _WIN32
-					STARTUPINFO si{};
-					PROCESS_INFORMATION pi{};
-
-					si.cb = sizeof(si);
-					CreateProcessA((enginePath + "/bin/Thorium Editor.exe").c_str(), (char*)args.c_str(), nullptr, nullptr, false, CREATE_NEW_PROCESS_GROUP, nullptr, nullptr, &si, &pi);
-#endif
-					return 1;
-				}
-				targetProj = args[0];
-				targetProj.Erase(targetProj.begin() + targetProj.FindLastOf("/\\"), targetProj.end());
-			}
-		}
-	}
-
-	if (targetProj.IsEmpty())
-	{
-		targetProj = "../.project";
-	}
-	return r;
-}
-
-#ifdef _WIN32
+#include "windows.h"
 #include "iomanip"
 #include <sstream>
 #include "minidumpapiset.h"
@@ -57,12 +20,12 @@ LONG WINAPI Win32ExceptionHandler(_EXCEPTION_POINTERS* exceptionInfo)
 {
 	typedef BOOL(WINAPI* MINIDUMPWRITEDUMP)(HANDLE hProcess, DWORD dwPid, HANDLE hFile, MINIDUMP_TYPE DumpType, CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam, PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam, CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
 
-	HMODULE mhlib = LoadLibrary("dbghelp.dll");
+	HMODULE mhlib = LoadLibraryA("dbghelp.dll");
 	MINIDUMPWRITEDUMP pDump = (MINIDUMPWRITEDUMP)GetProcAddress(mhlib, "MiniDumpWriteDump");
 
 	auto t = std::time(nullptr);
 	auto tm = *std::localtime(&t);
-	
+
 	std::ostringstream oss;
 	oss << std::put_time(&tm, "%d-%m-%y %H-%M-%S");
 	std::string timeTxt = oss.str();
@@ -72,7 +35,7 @@ LONG WINAPI Win32ExceptionHandler(_EXCEPTION_POINTERS* exceptionInfo)
 	ExInfo.ExceptionPointers = exceptionInfo;
 	ExInfo.ClientPointers = FALSE;
 
-	HANDLE hFile = CreateFile(("crash " + timeTxt + ".dmp").c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE hFile = CreateFileA(("crash " + timeTxt + ".dmp").c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	pDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &ExInfo, NULL, NULL);
 	CloseHandle(hFile);
@@ -99,40 +62,37 @@ int main(int argc, char** argv)
 
 #ifdef _WIN32
 	FCommandLine::Parse(lpCmdLine, false);
+	int argc = 0;
+	char** argv = nullptr;
 #else
 	FCommandLine::Parse(argv, argc);
 #endif
 
-	int exitCode = 0;
+	gIsEditor = true;
 
-	FString project;
-	if (ParseArgs(project) != 0)
-		return 0;
+	QApplication app(argc, argv);
 
-	gEngine = new CEditorEngine();
-	gEngine->Init();
+	int openProjectManager = true;
 
-#if 0
-	try {
-		gIsMainGaurded = true;
-		gEngine->LoadProject(project + "/..");
+	CEditorWindow::LoadStyleSheet();
 
-		exitCode = gEngine->Run();
+	FKeyValue kv(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/Editor.cfg");
+	if (kv.IsOpen())
+		openProjectManager = kv.GetValue("show_projectbrowser_startup")->AsBool(true);
+
+	if (!openProjectManager)
+	{
+		StartEngineThread();
+		CEditorWindow* window = CToolsWindow::Create<CEditorWindow>();
 	}
-	catch (std::exception& e) {
-		CONSOLE_LogError("CORE", e.what());
-		gEngine->SaveConsoleLog();
-		return 1;
-	}
-	catch (...) {
-		CONSOLE_LogError("CORE", "Unexpected exception has occured!");
-		gEngine->SaveConsoleLog();
-		return 1;
-	}
-#else
-	gEngine->LoadProject(project + "/..");
-	exitCode = gEngine->Run();
-#endif
+	else
+		CToolsWindow::Create<CProjectManagerWnd>();
 
-	return exitCode;
+	int r = app.exec();
+
+	//gEngine->Exit();
+
+	//gEngineThread->quit();
+	//gEngineThread->wait();
+	return r;
 }

@@ -19,7 +19,7 @@
 #include "ImGui/imgui.h"
 
 //CModule& GetModule_ThoriumEditor2();
-REGISTER_DEFAULT_MODULE(ThoriumEditor2)
+REGISTER_DEFAULT_MODULE(ThoriumEditorQt)
 
 void CEditorEngine::Init()
 {
@@ -27,7 +27,7 @@ void CEditorEngine::Init()
 	gIsEditor = true;
 	gIsClient = true;
 
-	CModuleManager::RegisterModule(&GetModule_ThoriumEditor2());
+	CModuleManager::RegisterModule(&GetModule_ThoriumEditorQt());
 
 	viewportCams[0] = new CCameraProxy();
 	viewportCams[1] = new CCameraProxy();

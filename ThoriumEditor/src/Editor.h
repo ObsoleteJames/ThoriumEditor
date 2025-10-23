@@ -5,7 +5,7 @@
 class CEngineThread;
 
 #ifdef _WIN32
-	#ifdef THORIUMEDITOR2_DLL
+	#ifdef THORIUMEDITORQT_DLL
 		#define EDITOR_API __declspec(dllexport)
 	#else
 		#define EDITOR_API __declspec(dllimport)

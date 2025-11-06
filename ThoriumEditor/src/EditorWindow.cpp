@@ -77,7 +77,7 @@ void CEditorWindow::SetupUi()
 	ads::CDockManager::setAutoHideConfigFlag(ads::CDockManager::AutoHideShowOnMouseOver);
 
 	dockmanager = new ads::CDockManager(this);
-	dockmanager->setStyleSheet("");
+	//dockmanager->setStyleSheet("");
 
 	QResource::registerResource(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/ThoriumEngine/EditorConfig/Themes/default_icons/icons.rcc");
 	//LoadStyleSheet();
@@ -306,7 +306,12 @@ void CEditorWindow::SetupUi()
 	connect(actGizmoRotate, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Rotate); });
 	connect(actGizmoScale, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Scale); });
 
-	connect(sceneUndoStack, &QUndoStack::cleanChanged, this, &CEditorWindow::updateTitle);
+	connect(sceneUndoStack, &QUndoStack::cleanChanged, this, [=]() {
+		updateTitle();
+
+		if (gWorld->GetScene())
+			gWorld->GetScene()->MarkAsDirty(!sceneUndoStack->isClean());
+	});
 
 	RestoreState();
 
@@ -425,7 +430,7 @@ void CEditorWindow::updateTitle()
 	}
 
 	CScene* scene = gWorld->GetScene();
-	if (scene)
+	if (scene && scene->File())
 	{
 		QString name(scene->File()->Path().c_str());
 		if (!sceneUndoStack->isClean())
@@ -559,6 +564,12 @@ void CEditorWindow::LoadStyleSheet()
 	QString themeFilePath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "\\ThoriumEngine\\EditorConfig\\Themes\\default\\theme";
 	FKeyValue theme(themeFilePath.toUtf8().constData());
 	THORIUM_ASSERT(theme.IsOpen(), FString("Failed to open theme file '") + (const char*)themeFilePath.toUtf8().constData() + "'");
+
+	if (!theme.IsOpen())
+	{
+		qApp->setStyle("fusion");
+		return;
+	}
 
 	for (auto& v : *theme.GetArray("include", true))
 	{

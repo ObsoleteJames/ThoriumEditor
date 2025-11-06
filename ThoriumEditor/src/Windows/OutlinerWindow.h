@@ -40,6 +40,8 @@ Q_SIGNALS:
 private:
 	TMap<SizeType, QTreeWidgetItem*> entityItems;
 
+	QTreeWidgetItem* sceneItem;
+
 	//	 entId  -  folderItem
 	TMap<SizeType, QTreeWidgetItem*> entityFolderLut;
 

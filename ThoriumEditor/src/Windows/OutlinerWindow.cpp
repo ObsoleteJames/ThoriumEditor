@@ -5,6 +5,7 @@
 #include "EngineThread.h"
 #include "Game/World.h"
 #include "Game/Entity.h"
+#include "Assets/Scene.h"
 #include "UndoActions/SceneUndoActions.h"
 #include <Util/Map.h>
 
@@ -126,6 +127,11 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 	outlinerTree->setColumnCount(2);
 	outlinerTree->setHeaderLabels({ "Name", "Type" });
 
+	sceneItem = new QTreeWidgetItem(outlinerTree);
+	sceneItem->setText(1, "Scene");
+	sceneItem->setData(1, Qt::UserRole, QVariant(EItemTypes_AssetFile));
+	sceneItem->setExpanded(true);
+
 	layout->addWidget(filter);
 	layout->addWidget(outlinerTree);
 
@@ -233,6 +239,15 @@ void COutlinerWindow::Update()
 	auto ents = gWorld->GetEntities();
 
 	outlinerTree->blockSignals(true);
+	FString worldName = "Empty Scene";
+	if (gWorld->GetScene() && gWorld->GetScene()->File())
+		worldName = gWorld->GetScene()->File()->Name();
+	if (!gWorld->GetScene() || gWorld->GetScene()->IsDirty())
+		worldName += '*';
+
+	if (sceneItem->text(0) != worldName.c_str())
+		sceneItem->setText(0, worldName.c_str());
+
 	auto items = entityItems;
 	for (auto it = items.begin(); it != items.end(); it++)
 	{
@@ -241,7 +256,7 @@ void COutlinerWindow::Update()
 			if (it->second->parent())
 				it->second->parent()->removeChild(it->second);
 			else
-				outlinerTree->invisibleRootItem()->removeChild(it->second);
+				sceneItem->removeChild(it->second);
 			entityItems.erase(it->first);
 
 			delete it->second;
@@ -274,7 +289,7 @@ void COutlinerWindow::Update()
 
 			entityItems[ent->EntityId()] = entItem;
 			if (!ent->RootComponent() || ent->RootComponent()->GetParent() == nullptr)
-				outlinerTree->addTopLevelItem(entItem);
+				sceneItem->addChild(entItem);
 		}
 		else
 		{
@@ -288,7 +303,7 @@ void COutlinerWindow::Update()
 			if (!ent->RootComponent()->GetParent() && parentItem && parentItem->data(1, Qt::UserRole).toInt() == EItemTypes_Entity)
 			{
 				parentItem->removeChild(entItem);
-				outlinerTree->addTopLevelItem(entItem);
+				sceneItem->addChild(entItem);
 			}
 			else if (CSceneComponent* parent = ent->RootComponent()->GetParent())
 			{
@@ -300,7 +315,7 @@ void COutlinerWindow::Update()
 					if (parentItem)
 						parentItem->removeChild(entItem);
 					else
-						outlinerTree->invisibleRootItem()->removeChild(entItem);
+						sceneItem->removeChild(entItem);
 					newParent->addChild(entItem);
 				}
 			}

@@ -70,8 +70,8 @@ void CEditorEngine::Init()
 
 	Events::PostLevelChange.Bind(this, &CEditorEngine::OnLevelChange);
 
-	//LoadWorld();
-	LoadWorld("maps/Basic.thasset");
+	LoadWorld();
+	//LoadWorld("maps/Basic.thasset");
 	deltaTime = 0.02;
 }
 

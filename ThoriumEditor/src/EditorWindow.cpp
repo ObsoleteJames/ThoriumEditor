@@ -10,6 +10,7 @@
 
 #include "UndoActions/SceneUndoActions.h"
 
+#include "ProjectManagerWindow.h"
 #include "Windows/ConsoleWindow.h"
 #include "Windows/OutlinerWindow.h"
 #include "Widgets/RenderWidget.h"
@@ -113,7 +114,7 @@ void CEditorWindow::SetupUi()
 
 	menuFile->addSection("Project");
 	menuFile->addAction("New Project");
-	menuFile->addAction("Open Project");
+	menuFile->addAction("Open Project", this, [=]() { if (close()) CToolsWindow::Create<CProjectManagerWnd>()->activateWindow(); });
 	menuFile->addAction("Close Project");
 
 	menuFile->addSection("Build");
@@ -459,7 +460,6 @@ void CEditorWindow::closeEvent(QCloseEvent* event)
 		}
 
 		event->accept();
-		QApplication::quit();
 	}
 	else
 		event->ignore();

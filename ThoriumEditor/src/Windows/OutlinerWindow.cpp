@@ -216,7 +216,7 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 		}
 	});
 
-	QTimer* updateTimer = new QTimer(this);
+	updateTimer = new QTimer(this);
 	connect(updateTimer, &QTimer::timeout, this, &COutlinerWindow::Update);
 
 	updateTimer->start(50);
@@ -227,6 +227,8 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 
 COutlinerWindow::~COutlinerWindow()
 {
+	updateTimer->stop();
+	updateTimer->deleteLater();
 	filter->deleteLater();
 	outlinerTree->deleteLater();
 }

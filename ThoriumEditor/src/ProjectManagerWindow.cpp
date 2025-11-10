@@ -140,7 +140,7 @@ void CProjectManagerWnd::SetupUi()
 		deleteLater(); 
 	});
 	connect(btnShowStartup, &QCheckBox::checkStateChanged, this, [=](Qt::CheckState state) {
-		bShowStartup = state == Qt::Checked;
+		bShowStartup = (state == Qt::Checked);
 	});
 
 	RestoreState();
@@ -287,7 +287,7 @@ void CProjectManagerWnd::OpenProject()
 void CProjectManagerWnd::closeEvent(QCloseEvent* event)
 {
 	FKeyValue kv(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/Editor.cfg");
-	kv.SetValue("show_projectbrowser_startup", bShowStartup == Qt::Checked ? "1" : "0");
+	kv.SetValue("show_projectbrowser_startup", bShowStartup ? "1" : "0");
 	kv.Save();
 
 	event->accept();

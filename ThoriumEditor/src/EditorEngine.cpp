@@ -50,6 +50,8 @@ void CEditorEngine::Init()
 	gRenderer->MakeIndestructible();
 	gRenderer->Init();
 
+	InitEditorRender();
+
 	gameWindow = nullptr;
 
 	inputManager = CreateObject<CInputManager>();

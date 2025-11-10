@@ -6,15 +6,15 @@
 #include "Game/Entity.h"
 #include "Game/Components/PrimitiveComponent.h"
 
-static bool bEditorRenderInit = 0;
+//static bool bEditorRenderInit = 0;
 
-static CShaderSource* shaderSelectOverlay;
-static IShaderBuffer* objectBuffer;
-static IShaderBuffer* sceneBuffer;
+//static CShaderSource* shaderSelectOverlay;
+//static IShaderBuffer* objectBuffer;
+//static IShaderBuffer* sceneBuffer;
 
-static void _InitEditorRender()
+void CEditorEngine::InitEditorRender()
 {
-	bEditorRenderInit = true;
+	//bEditorRenderInit = true;
 
 	shaderSelectOverlay = CShaderSource::GetShaderSource("Editor_SelectOverlay");
 	if (shaderSelectOverlay)
@@ -31,8 +31,8 @@ static void _InitEditorRender()
 
 void CEditorEngine::DoEditorRender()
 {
-	if (!bEditorRenderInit)
-		_InitEditorRender();
+	//if (!bEditorRenderInit)
+	//	_InitEditorRender();
 
 	if (!bSelectionOverlay)
 		return;

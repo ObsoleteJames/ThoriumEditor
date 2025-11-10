@@ -49,4 +49,6 @@ private:
 
 	QLineEdit* filter;
 	QTreeWidget* outlinerTree;
+
+	QTimer* updateTimer;
 };

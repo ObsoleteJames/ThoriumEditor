@@ -56,6 +56,7 @@ private:
 
 	void SetDeltaTime(double dt);
 
+	void InitEditorRender();
 	void DoEditorRender();
 
 public: // Editor Variables
@@ -76,6 +77,10 @@ public: // Rendering
 	bool bGameView = false;
 
 	CCameraProxy* viewportCams[4];
+
+	TObjectPtr<CShaderSource> shaderSelectOverlay;
+	TObjectPtr<IShaderBuffer> objectBuffer;
+	TObjectPtr<IShaderBuffer> sceneBuffer;
 
 };
 

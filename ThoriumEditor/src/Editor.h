@@ -28,5 +28,6 @@ enum EItemTypes
 	EItemTypes_AssetFile,
 	EItemTypes_Entity,
 	EItemTypes_EntityComponent,
-	EItemTypes_SceneComponent
+	EItemTypes_SceneComponent,
+	EItemTypes_World
 };

@@ -14,6 +14,7 @@
 #include <QBoxLayout>
 #include <QTreeWidget>
 #include <QListWidget>
+#include <QTableView>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QFrame>
@@ -23,6 +24,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QFileIconProvider>
+#include <QStandardItemModel>
 
 #define ASSET_MAX_GRID_SIZE 5
 
@@ -62,6 +64,16 @@ public:
 protected:
 	void dropEvent(QDropEvent* event) { }
 
+};
+
+class CFileItem : public QStandardItem
+{
+public:
+	CFileItem(const QString& text, int type = QStandardItem::UserType) : QStandardItem(text), t(type) {}
+	virtual int type() const override { return t; }
+
+private:
+	int t;
 };
 
 CAssetFilterMenu::CAssetFilterMenu(TArray<FString>* l, QWidget* parent) : QMenu(parent)
@@ -143,16 +155,43 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 	
 	fileTree = new QTreeWidget(this);
 	fileTree->setStyleSheet("QFrame { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #242424, stop:1 #161616); }");
-	dirView = new CAssetList(this);
-	dirView->setProperty("type", QVariant(2));
-	dirView->setObjectName("CAssetBrowser::dirView");
-	dirView->setContextMenuPolicy(Qt::CustomContextMenu);
-	dirView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-	dirView->setStyleSheet("QFrame { background: #111; }");
-	connect(dirView, &QListWidget::customContextMenuRequested, this, &CContentBrowserWidget::CreateContextMenu);
+	//dirView = new CAssetList(this);
+	//dirView->setProperty("type", QVariant(2));
+	//dirView->setObjectName("CAssetBrowser::dirView");
+	//dirView->setContextMenuPolicy(Qt::CustomContextMenu);
+	//dirView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	//dirView->setStyleSheet("QFrame { background: #111; }");
+	//connect(dirView, &QListWidget::customContextMenuRequested, this, &CContentBrowserWidget::CreateContextMenu);
 
-	dirView->setDragDropMode(QListWidget::NoDragDrop);
-	connect(dirView, &QListWidget::itemDoubleClicked, this, [=](QListWidgetItem* item) {
+	dirModel = new QStandardItemModel(0, 3);
+	dirListView = new QListView(this);
+	dirListView->setObjectName("CContentBrowser::dirListView");
+	dirListView->setProperty("type", QVariant(2));
+	dirListView->setContextMenuPolicy(Qt::CustomContextMenu);
+	dirListView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	dirListView->setDragDropMode(QListWidget::NoDragDrop);
+	dirListView->setEditTriggers(QAbstractItemView::EditKeyPressed);
+	dirListView->setModel(dirModel);
+
+	dirTableView = new QTableView(this);
+	dirTableView->setObjectName("CContentBrowser::dirTableView");
+	dirTableView->setContextMenuPolicy(Qt::CustomContextMenu);
+	dirTableView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	dirTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
+	dirTableView->setDragDropMode(QListWidget::NoDragDrop);
+	dirTableView->setEditTriggers(QAbstractItemView::EditKeyPressed);
+	dirTableView->setModel(dirModel);
+
+	connect(dirListView, &QListView::customContextMenuRequested, this, &CContentBrowserWidget::CreateContextMenu);
+	connect(dirTableView, &QListView::customContextMenuRequested, this, &CContentBrowserWidget::CreateContextMenu);
+
+	connect(dirListView, &QListView::doubleClicked, this, &CContentBrowserWidget::dirDoubleClicked);
+	connect(dirListView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &CContentBrowserWidget::dirSelectionChanged);
+
+	connect(dirTableView, &QListView::doubleClicked, this, &CContentBrowserWidget::dirDoubleClicked);
+	connect(dirTableView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &CContentBrowserWidget::dirSelectionChanged);
+
+	/*connect(dirView, &QListWidget::itemDoubleClicked, this, [=](QListWidgetItem* item) {
 		if (item->type() == EItemTypes_Folder)
 		{
 			FString newDir = dir;
@@ -205,7 +244,8 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 			selectedFile = (FFile*)item->data(257).toULongLong();
 		}
 		emit(fileClicked());
-	});
+	});*/
+
 	connect(fileTree, &QTreeWidget::itemSelectionChanged, this, [=]() {
 		if (fileTree->selectedItems().size() == 0)
 			return;
@@ -318,8 +358,12 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 	topLayout->setSpacing(2);
 	topLayout->setContentsMargins(2, 2, 2, 2);
 	dirViewLayout->addWidget(lineFrame);
-	dirViewLayout->addWidget(dirView);
+	//dirViewLayout->addWidget(dirView);
+	dirViewLayout->addWidget(dirListView);
+	dirViewLayout->addWidget(dirTableView);
 	layout->addWidget(splitter);
+
+	dirTableView->hide();
 
 	dir = "";
 
@@ -335,7 +379,73 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 
 CContentBrowserWidget::~CContentBrowserWidget()
 {
+}
 
+void CContentBrowserWidget::dirDoubleClicked(const QModelIndex& index)
+{
+	auto* item = dirModel->item(index.row());
+
+	if (item->type() == EItemTypes_Folder)
+	{
+		FString newDir = dir;
+		if (*newDir.last() == L'/')
+			newDir.Erase(newDir.last());
+
+		if (newDir.IsEmpty())
+			newDir = (const char*)item->text().toUtf8().constData();
+		else
+			newDir = newDir + "/" + (const char*)item->text().toUtf8().constData();
+
+		SetDirectory(newDir);
+	}
+	else if (item->type() == EItemTypes_AssetFile)
+	{
+		FFile* file = (FFile*)item->data(257).toULongLong();
+		selectedFile = file;
+		emit(fileDoubleClicked());
+
+		if (!file)
+			return;
+
+		FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
+
+		if (auto* action = FAssetBrowserAction::GetAction(type, BA_FILE_OPEN); action)
+		{
+			FBADataBase data{ this, nullptr, file };
+			action->Invoke(&data);
+		}
+	}
+}
+
+void CContentBrowserWidget::dirSelectionChanged(const QItemSelection& selected, const QItemSelection& dselected)
+{
+	selectedFiles.Clear();
+	//auto items = dirModel->selectedItems();
+	//auto items = selected;
+
+	for (auto& range : selected)
+	{
+		for (auto& index : range.indexes())
+		{
+			auto* item = dirModel->item(index.row());
+			if (item->type() == EItemTypes_AssetFile)
+			{
+				selectedFiles.Add((FFile*)item->data(257).toULongLong());
+			}
+		}
+	}
+
+	selectedFile = nullptr;
+	if (selectedFiles.Size() == 0)
+		return;
+
+	selectedFile = selectedFiles[0];
+	//auto* item = dirView->selectedItems()[0];
+	//if (item->type() == EItemTypes_AssetFile)
+	//{
+	//	selectedFile = (FFile*)item->data(257).toULongLong();
+	//}
+	emit(fileClicked());
 }
 
 void CContentBrowserWidget::SetDirectory(const FString& d, bool fromHistory)
@@ -466,7 +576,9 @@ void CContentBrowserWidget::AddDirToTree(FMod* mod, FDirectory* dir, QTreeWidget
 
 void CContentBrowserWidget::CreateContextMenu(QPoint point)
 {
-	auto* item = dirView->itemAt(point);
+	//auto* item = dirView->itemAt(point);
+	auto index = dirListView->indexAt(point);
+	auto* item = dirModel->item(index.row());
 
 	QMenu menu(this);
 
@@ -612,7 +724,7 @@ void CContentBrowserWidget::CreateContextMenu(QPoint point)
 		}
 	}
 
-	menu.exec(dirView->mapToGlobal(point));
+	menu.exec(QCursor::pos());
 }
 
 void CContentBrowserWidget::ImportAsset()
@@ -762,7 +874,7 @@ void CContentBrowserWidget::UpdateView()
 {
 	curFolderEdit->setText((mod + ":/" + dir).c_str());
 
-	dirView->clear();
+	dirModel->clear();
 
 	FDirectory* dir = GetFDirectory(mod, this->dir);
 	if (!dir)
@@ -770,9 +882,11 @@ void CContentBrowserWidget::UpdateView()
 
 	for (auto* d : dir->GetSubDirectories())
 	{
-		QListWidgetItem* item = new QListWidgetItem(QString(d->GetName().c_str()), dirView, EItemTypes_Folder);
-		item->setData(257, QVariant((SizeType)d));
+		CFileItem* item = new CFileItem(QString(d->GetName().c_str()), EItemTypes_Folder);
+		//QListWidgetItem* item = new QListWidgetItem(QString(d->GetName().c_str()), dirView, EItemTypes_Folder);
+		item->setData(QVariant((SizeType)d), 257);
 		item->setIcon(QIcon(":/icons/folder.svg"));
+		dirModel->appendRow({ item, new QStandardItem("Folder"), new QStandardItem("") });
 	}
 
 	for (auto* f : dir->GetFiles())
@@ -786,9 +900,10 @@ void CContentBrowserWidget::UpdateView()
 
 		FAssetClass* type = CAssetManager::GetAssetTypeByFile(f);
 
-		QListWidgetItem* item = new QListWidgetItem(QString(f->Name().c_str()), dirView, EItemTypes_AssetFile);
-		item->setData(257, QVariant((SizeType)f));
+		//QListWidgetItem* item = new QListWidgetItem(QString(f->Name().c_str()), dirView, EItemTypes_AssetFile);
+		CFileItem* item = new CFileItem(QString(f->Name().c_str()), EItemTypes_AssetFile);
 
+		item->setData(QVariant((SizeType)f));
 		item->setIcon(QIcon(":/icons/file.svg"));
 
 		if (!type)
@@ -796,7 +911,13 @@ void CContentBrowserWidget::UpdateView()
 
 		FString tooltip = "Type: " + f->Extension() + "\nSize: " + FString::ToString(f->Size());
 		item->setToolTip(QString(tooltip.c_str()));
+
+		dirModel->appendRow({ item, new QStandardItem(type ? type->GetName().c_str() : f->Extension().c_str()), new QStandardItem(QString::number(f->Size()))});
 	}
+
+	dirModel->setHeaderData(0, Qt::Horizontal, "Name");
+	dirModel->setHeaderData(1, Qt::Horizontal, "Type");
+	dirModel->setHeaderData(2, Qt::Horizontal, "Size");
 }
 
 void CContentBrowserWidget::UpdateViewSettings()
@@ -806,23 +927,28 @@ void CContentBrowserWidget::UpdateViewSettings()
 		btnViewMode->setIcon(QIcon(":/icons/grid-view.svg"));
 		gridSizeSlider->setEnabled(true);
 
-		dirView->setFlow(QListView::LeftToRight);
-		dirView->setResizeMode(QListView::Adjust);
-		dirView->setGridSize(QSize((24 * dirViewSize) + 20, (30 * dirViewSize) + 20));
-		dirView->setIconSize(QSize(24 * dirViewSize, 24 * dirViewSize));
+		dirListView->show();
+		dirTableView->hide();
+
+		dirListView->setFlow(QListView::LeftToRight);
+		dirListView->setResizeMode(QListView::Adjust);
+		dirListView->setGridSize(QSize((24 * dirViewSize) + 20, (30 * dirViewSize) + 20));
+		dirListView->setIconSize(QSize(24 * dirViewSize, 24 * dirViewSize));
 		//dirView->setSpacing(2);
-		dirView->setViewMode(QListView::IconMode);
+		dirListView->setViewMode(QListView::IconMode);
 	}
 	else
 	{
 		btnViewMode->setIcon(QIcon(":/icons/dropdown.svg"));
 		gridSizeSlider->setEnabled(false);
 
-		dirView->setFlow(QListView::TopToBottom);
-		dirView->setResizeMode(QListView::Fixed);
-		//dirView->setSpacing(2);
-		dirView->setGridSize(QSize(-1, -1));
-		dirView->setIconSize(QSize(-1, -1));
-		dirView->setViewMode(QListView::ListMode);
+		dirListView->hide();
+		dirTableView->show();
+		//dirView->setFlow(QListView::TopToBottom);
+		//dirView->setResizeMode(QListView::Fixed);
+		////dirView->setSpacing(2);
+		//dirView->setGridSize(QSize(-1, -1));
+		//dirView->setIconSize(QSize(-1, -1));
+		//dirView->setViewMode(QListView::ListMode);
 	}
 }

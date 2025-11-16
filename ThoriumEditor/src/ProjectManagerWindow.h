@@ -22,6 +22,8 @@ public:
 	CProjectManagerWnd();
 	virtual ~CProjectManagerWnd();
 
+	static bool CreateProject(const FString& name, const FString& path);
+
 protected:
 	virtual bool Shutdown() override;
 	virtual void SetupUi() override;
@@ -30,7 +32,7 @@ protected:
 	void UpdateProjectList();
 
 	void CreateNewProject();
-	void OpenProject();
+	void AddProject();
 
 	void closeEvent(QCloseEvent* event) override;
 

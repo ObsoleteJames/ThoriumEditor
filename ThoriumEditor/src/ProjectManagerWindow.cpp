@@ -32,6 +32,54 @@ CProjectManagerWnd::~CProjectManagerWnd()
 	SaveState();
 }
 
+bool CProjectManagerWnd::CreateProject(const FString& name, const FString& path)
+{
+	QString qPath = QString((const QChar*)path.c_str());
+	QString qName = QString((const QChar*)name.c_str());
+	QString projectPath = qPath + "/" + qName;
+	QDir().mkpath(projectPath);
+	QDir().mkpath(projectPath + "/config");
+	QDir().mkpath(projectPath + "/" + qName + "/config");
+	QDir().mkpath(projectPath + "/" + qName + "/bin");
+	QDir().mkpath(projectPath + "/.project/" + qName + "/sdk_content");
+	QDir().mkpath(projectPath + "/.project/" + qName + "/src");
+
+	{
+		FKeyValue projectCfg(path + "/" + name + "/config/project.cfg");
+
+		projectCfg.SetValue("name", ToFString(name));
+		projectCfg.SetValue("displayName", ToFString(name));
+		projectCfg.SetValue("engine_version", ENGINE_VERSION);
+		projectCfg.SetValue("author", "Unkown");
+		projectCfg.SetValue("game", ToFString(name));
+
+		projectCfg.SetValue("hasSdk", "0");
+		projectCfg.SetValue("hasEngineContent", "0");
+
+		projectCfg.Save();
+	}
+
+	{
+		FKeyValue gameInfo(path + "/" + name + "/" + name + "/config/gameinfo.cfg");
+
+		gameInfo.SetValue("title", ToFString(name));
+		gameInfo.SetValue("version", "1.0.0");
+		gameInfo.SetValue("scene", "empty");
+
+		gameInfo.SetValue("gameinstance", "CGameInstance");
+
+		gameInfo.Save();
+	}
+
+	{
+		FKeyValue editorProj(path + "/" + name + "/.project/" + name + ".thproj");
+
+		editorProj.SetValue("engine_version", ENGINE_VERSION);
+		editorProj.Save();
+	}
+	return false;
+}
+
 bool CProjectManagerWnd::Shutdown()
 {
 	return true;
@@ -93,7 +141,7 @@ void CProjectManagerWnd::SetupUi()
 	QSpacerItem* spacer = new QSpacerItem(1, 0, QSizePolicy::Expanding);
 	topBar->addItem(spacer);
 
-	QPushButton* openProjBtn = new QPushButton("Open Project", this);
+	QPushButton* openProjBtn = new QPushButton("Add Project", this);
 	topBar->addWidget(openProjBtn);
 
 	QPushButton* createProjBtn = new QPushButton("New Project", this);
@@ -126,7 +174,7 @@ void CProjectManagerWnd::SetupUi()
 		deleteLater();
 	});
 	connect(createProjBtn, &QPushButton::clicked, this, &CProjectManagerWnd::CreateNewProject);
-	connect(openProjBtn, &QPushButton::clicked, this, &CProjectManagerWnd::OpenProject);
+	connect(openProjBtn, &QPushButton::clicked, this, &CProjectManagerWnd::AddProject);
 	connect(btn1, &QPushButton::clicked, this, [=]() { 	
 		if (!StartEngineThread())
 		{
@@ -244,7 +292,7 @@ void CProjectManagerWnd::CreateNewProject()
 	FString projName = editName->text().toStdString();
 	FString projDir = editDir->text().toStdString();
 
-	//CEditorEngine::CreateProject(projName, projDir);
+	CreateProject(projName, projDir);
 
 	/*if (!gEngine->LoadProject(projDir + "/" + projName))
 		return;*/
@@ -261,7 +309,7 @@ void CProjectManagerWnd::CreateNewProject()
 	deleteLater();
 }
 
-void CProjectManagerWnd::OpenProject()
+void CProjectManagerWnd::AddProject()
 {
 	QString p = QFileDialog::getOpenFileName(this, "Open Project", QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Thorium Projects", "Project File (*.thproj)");
 	if (p.isEmpty())
@@ -269,19 +317,36 @@ void CProjectManagerWnd::OpenProject()
 
 	FString path = p.toStdString();
 	path.Erase(path.begin() + path.FindLastOf("/\\"), path.end());
-	path += "\\..";
+	path.Erase(path.begin() + path.FindLastOf("/\\"), path.end());
 
-	if (!StartEngineThread(path))
-	{
-		DestroyEngineThread();
-		return;
-	}
+	FKeyValue proj(path + "/config/project.cfg");
+	FString projectName = proj.GetValue("name")->Value;
+	FString projectDisplayName = proj.GetValue("displayName")->Value;
 
-	//gEditorEngine()->RegisterProject(gEngine->GetProjectConfig());
-	CToolsWindow::Create<CEditorWindow>();
+	FKeyValue kv(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/Editor.cfg");
+	auto* cat = kv.GetCategory("projects", true);
+	cat->GetValue(projectName)->Value = path;
 
-	close();
-	deleteLater();
+	FProjectDef pd;
+	pd.name = projectDisplayName;
+	pd.path = path;
+	pd.bHasIcon = FFileHelper::FileExists(path + "/.project/icon.png");
+	this->projects.Add(pd);
+
+	kv.Save();
+	UpdateProjectList();
+
+	//if (!StartEngineThread(path))
+	//{
+	//	DestroyEngineThread();
+	//	return;
+	//}
+
+	////gEditorEngine()->RegisterProject(gEngine->GetProjectConfig());
+	//CToolsWindow::Create<CEditorWindow>();
+
+	//close();
+	//deleteLater();
 }
 
 void CProjectManagerWnd::closeEvent(QCloseEvent* event)
@@ -295,27 +360,6 @@ void CProjectManagerWnd::closeEvent(QCloseEvent* event)
 
 void CProjectManagerWnd::SearchForProjects()
 {
-	//QString doc = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
-
-	//if (!FFileHelper::DirectoryExists(doc.toStdString() + "\\Thorium Projects"))
-	//	return;
-
-	//for (auto entry : std::filesystem::directory_iterator(doc.toStdString() + "\\Thorium Projects"))
-	//{
-	//	if (entry.is_regular_file())
-	//		continue;
-
-	//	FKeyValue kv(WString(entry.path().wstring()) + L"\\config\\project.cfg");
-	//	if (kv.IsOpen())
-	//	{
-	//		FProjectDef proj;
-	//		proj.name = *kv.GetValue("displayName");
-	//		proj.path = entry.path().wstring();
-	//		proj.bHasIcon = FFileHelper::FileExists(WString(entry.path().wstring()) + L"\\.project\\icon.png");
-	//		projects.Add(proj);
-	//	}
-	//}
-
 	FKeyValue kv(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/Editor.cfg");
 	if (kv.IsOpen())
 	{
@@ -338,17 +382,4 @@ void CProjectManagerWnd::SearchForProjects()
 			}
 		}
 	}
-
-	/*for (auto& proj : gEditorEngine()->availableProjects)
-	{
-		FKeyValue kv(proj.dir + L"\\config\\project.cfg");
-		if (kv.IsOpen())
-		{
-			FProjectDef p;
-			p.name = *kv.GetValue("displayName");
-			p.path = proj.dir;
-			p.bHasIcon = FFileHelper::FileExists(proj.dir + L"\\.project\\icon.png");
-			projects.Add(p);
-		}
-	}*/
 }

@@ -1,5 +1,6 @@
 
 #include "EditorWindow.h"
+#include "System.h"
 #include "EditorEngine.h"
 #include "EngineThread.h"
 #include "EditorTool.h"
@@ -78,7 +79,7 @@ void CEditorWindow::SetupUi()
 	ads::CDockManager::setAutoHideConfigFlag(ads::CDockManager::AutoHideShowOnMouseOver);
 
 	dockmanager = new ads::CDockManager(this);
-	//dockmanager->setStyleSheet("");
+	dockmanager->setStyleSheet("");
 
 	QResource::registerResource(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/ThoriumEngine/EditorConfig/Themes/default_icons/icons.rcc");
 	//LoadStyleSheet();
@@ -560,8 +561,10 @@ void CEditorWindow::LoadStyleSheet()
 {
 	QString styleSheet;
 
-	QString themePath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "\\ThoriumEngine\\EditorConfig\\Themes\\default\\";
-	QString themeFilePath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "\\ThoriumEngine\\EditorConfig\\Themes\\default\\theme";
+	FString enginePath = SSystem::GetEnginePath();
+
+	QString themePath = (enginePath + "/content/editor/themes/default/").c_str();
+	QString themeFilePath = themePath + "theme";
 	FKeyValue theme(themeFilePath.toUtf8().constData());
 	THORIUM_ASSERT(theme.IsOpen(), FString("Failed to open theme file '") + (const char*)themeFilePath.toUtf8().constData() + "'");
 

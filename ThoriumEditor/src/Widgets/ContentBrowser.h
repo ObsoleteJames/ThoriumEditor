@@ -5,6 +5,8 @@
 #include <Util/String.h>
 #include "Editor.h"
 
+#include <QItemSelection>
+
 struct FDirectory;
 struct FFile;
 struct FMod;
@@ -14,6 +16,9 @@ class QListWidget;
 class QPushButton;
 class QTreeWidget;
 class QTreeWidgetItem;
+class QListView;
+class QTableView;
+class QStandardItemModel;
 class QSplitter;
 class QSlider;
 
@@ -166,6 +171,10 @@ Q_SIGNALS:
 	void fileDoubleClicked();
 	void fileClicked();
 
+private Q_SLOTS:
+	void dirDoubleClicked(const QModelIndex& index);
+	void dirSelectionChanged(const QItemSelection& selected, const QItemSelection& dselected);
+
 private:
 	int dirViewSize = 3;
 	bool bCreateFiles = true;
@@ -184,7 +193,11 @@ private:
 
 	CAssetFilterMenu* filterMenu;
 	QTreeWidget* fileTree;
-	QListWidget* dirView;
+	//QListWidget* dirView;
+
+	QListView* dirListView;
+	QTableView* dirTableView;
+	QStandardItemModel* dirModel;
 
 	QLineEdit* curFolderEdit;
 

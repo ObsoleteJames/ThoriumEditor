@@ -23,9 +23,9 @@ void CEditorEngine::InitEditorRender()
 		shaderSelectOverlay->MakeIndestructible();
 	}
 
-	objectBuffer = gGHI->CreateShaderBuffer(nullptr, sizeof(FObjectInfoBuffer));
+	objectBuffer = gGHI->CreateBuffer({ TH_BUFFER_TYPE_SHADER_BUFFER, sizeof(FObjectInfoBuffer), nullptr, 0, TH_BUFFER_FLAGS_CPU_WRITE });
 	objectBuffer->MakeIndestructible();
-	sceneBuffer = gGHI->CreateShaderBuffer(nullptr, sizeof(FSceneInfoBuffer));
+	sceneBuffer = gGHI->CreateBuffer({ TH_BUFFER_TYPE_SHADER_BUFFER, sizeof(FSceneInfoBuffer), nullptr, 0, TH_BUFFER_FLAGS_CPU_WRITE });
 	sceneBuffer->MakeIndestructible();
 }
 

@@ -79,8 +79,8 @@ public: // Rendering
 	CCameraProxy* viewportCams[4];
 
 	TObjectPtr<CShaderSource> shaderSelectOverlay;
-	TObjectPtr<IShaderBuffer> objectBuffer;
-	TObjectPtr<IShaderBuffer> sceneBuffer;
+	TObjectPtr<IGBuffer> objectBuffer;
+	TObjectPtr<IGBuffer> sceneBuffer;
 
 };
 

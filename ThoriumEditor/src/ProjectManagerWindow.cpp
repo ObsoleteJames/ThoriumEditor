@@ -160,32 +160,15 @@ void CProjectManagerWnd::SetupUi()
 
 	connect(projectList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
 		int proj = item->data(Qt::UserRole + 1).toInt();
+		OpenProject(projects[proj].path);
+
 		//if (!gEngine->LoadProject(projects[proj].path))
 		//	return;
-		if (!StartEngineThread(projects[proj].path))
-		{
-			DestroyEngineThread();
-			return;
-		}
-
-		CToolsWindow::Create<CEditorWindow>();
-
-		close();
-		deleteLater();
 	});
 	connect(createProjBtn, &QPushButton::clicked, this, &CProjectManagerWnd::CreateNewProject);
 	connect(openProjBtn, &QPushButton::clicked, this, &CProjectManagerWnd::AddProject);
-	connect(btn1, &QPushButton::clicked, this, [=]() { 	
-		if (!StartEngineThread())
-		{
-			DestroyEngineThread();
-			return;
-		}
-
-		CToolsWindow::Create<CEditorWindow>();
-
-		close();
-		deleteLater(); 
+	connect(btn1, &QPushButton::clicked, this, [=]() {
+		OpenProject(FString());
 	});
 	connect(btnShowStartup, &QCheckBox::checkStateChanged, this, [=](Qt::CheckState state) {
 		bShowStartup = (state == Qt::Checked);
@@ -194,6 +177,22 @@ void CProjectManagerWnd::SetupUi()
 	RestoreState();
 
 	UpdateProjectList();
+}
+
+void CProjectManagerWnd::OpenProject(const FString& proj)
+{
+	hide();
+	if (!StartEngineThread(proj))
+	{
+		show();
+		DestroyEngineThread();
+		return;
+	}
+
+	CToolsWindow::Create<CEditorWindow>();
+
+	close();
+	deleteLater();
 }
 
 void CProjectManagerWnd::UpdateProjectList()

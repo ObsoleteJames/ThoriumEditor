@@ -133,6 +133,15 @@ int CEditorEngine::Run()
 				viewportCams[i]->renderTarget = gEditorWindow->worldViewports[i]->GetSwapChain()->GetFrameBuffer();
 		}
 
+		if (!bGameView && !bIsPlaying && bSelectionBoundingBox)
+		{
+			for (auto& obj : selectedObjects)
+			{
+				CEntity* ent = Cast<CEntity>(obj);
+				gWorld->renderScene->DebugRenderer()->DrawBounds(ent->GetBounds(), FColor::yellow);
+			}
+		}
+
 		gWorld->Render();
 		gRenderer->PushScene(gWorld->GetRenderScene());
 

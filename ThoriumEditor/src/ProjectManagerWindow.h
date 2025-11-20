@@ -36,6 +36,8 @@ protected:
 
 	void closeEvent(QCloseEvent* event) override;
 
+	void OpenProject(const FString& proj);
+
 private:
 	TArray<FProjectDef> projects;
 	QListWidget* projectList;

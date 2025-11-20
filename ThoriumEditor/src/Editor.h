@@ -3,6 +3,7 @@
 //#include <QThread>
 #include <Util/Core.h>
 class CEngineThread;
+class QSplashScreen;
 
 #ifdef _WIN32
 	#ifdef THORIUMEDITORQT_DLL
@@ -15,6 +16,7 @@ class CEngineThread;
 #endif
 
 extern EDITOR_API CEngineThread* gEngineThread;
+extern EDITOR_API QSplashScreen* gSplashscreen;
 
 EDITOR_API bool StartEngineThread(const FString& project = FString());
 EDITOR_API void StopEngineThread();

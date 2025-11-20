@@ -21,6 +21,7 @@
 #include "Tools/ObjectTool.h"
 #include "Tools/ModellingTool.h"
 
+#include <QSplashScreen>
 #include <DockAreaWidget.h>
 #include <QApplication>
 #include <QGuiApplication>
@@ -71,6 +72,9 @@ bool CEditorWindow::Shutdown()
 
 void CEditorWindow::SetupUi()
 {
+	if (gSplashscreen)
+		gSplashscreen->finish(this);
+
 	int x = QGuiApplication::primaryScreen()->geometry().width();
 	int y = QGuiApplication::primaryScreen()->geometry().height();
 

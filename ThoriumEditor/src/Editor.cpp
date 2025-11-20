@@ -2,10 +2,13 @@
 #include "Editor.h"
 #include "EditorEngine.h"
 #include "EngineThread.h"
+#include "System.h"
 
 #include <QObject>
+#include <QSplashScreen>
 
 CEngineThread* gEngineThread = nullptr;
+QSplashScreen* gSplashscreen = nullptr;
 
 void _EngineThread()
 {
@@ -16,6 +19,13 @@ void _EngineThread()
 bool StartEngineThread(const FString& project)
 {
 	bool r = true;
+
+	auto enginePath = SSystem::GetEnginePath();
+	gSplashscreen = new QSplashScreen(QPixmap((enginePath + "/content/editor/splash.png").c_str()));
+	gSplashscreen->show();
+	gSplashscreen->showMessage("Loading Engine...", Qt::AlignLeft | Qt::AlignBottom, Qt::white);
+	
+	// TODO: scan for libraries that may need compiling!
 
 	gEngine = new CEditorEngine();
 	gEngine->Init();

@@ -512,15 +512,28 @@ void CEditorWindow::SetupMenuBar()
 			prevMenu->addMenu(curMenu);
 		}
 
-		QAction* action = new QAction(w->Name, this);
+		QAction* action = nullptr;
+		for (auto a : curMenu->actions())
+		{
+			if (a->text() == w->Name)
+			{
+				action = a;
+				break;
+			}
+		}
+
+		if (!action)
+		{
+			action = new QAction(w->Name, this);
+			curMenu->addAction(action);
+		}
+		
 		action->setObjectName(w->Name);
 		if (w->icon)
 		{
 			action->setIcon(*w->icon);
 			action->setIconText(w->Name);
 		}
-
-		curMenu->addAction(action);
 
 		connect(action, &QAction::triggered, this, [=](bool) { w->Create(); });
 	}

@@ -22,7 +22,7 @@ private:
 	QWidget* settingsView;
 	QSplitter* splitter;
 
-	QTreeWidget* sGeneral;
-	QTreeWidget* sAppearance;
+	//QTreeWidget* sGeneral;
+	//QTreeWidget* sAppearance;
 
 };

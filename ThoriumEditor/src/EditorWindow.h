@@ -3,6 +3,7 @@
 #include "Editor.h"
 #include <QMainWindow>
 #include "DockManager.h"
+#include "Gizmo.h"
 #include "Windows/ToolsWindow.h"
 
 class CEntity;
@@ -22,15 +23,6 @@ class COutlinerWindow;
 class QUndoStack;
 
 extern EDITOR_API CEditorWindow* gEditorWindow;
-
-enum EGizmoMode
-{
-	Gizmo_Select = 0,
-	Gizmo_Translate,
-	Gizmo_Rotate,
-	Gizmo_Scale,
-	Gizmo_Bounds
-};
 
 class EDITOR_API CEditorWindow : public CToolsWindow
 {

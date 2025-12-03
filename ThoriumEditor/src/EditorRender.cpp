@@ -50,7 +50,7 @@ void CEditorEngine::DoEditorRender()
 	if (scene->depth)
 		scene->depth->Clear();
 
-	static TArray<TPair<CPrimitiveProxy*, FMeshBuilder>> meshes;
+	static TArray<TPair<CPrimitiveProxy*, FMeshBuilder::FRenderMesh>> meshes;
 	meshes.Clear();
 
 	//static TArray<CPrimitiveComponent*> comps;
@@ -71,14 +71,22 @@ void CEditorEngine::DoEditorRender()
 
 			auto* proxy = comp->PrimitiveProxy();
 
+			static TArray<FMeshBuilder::FRenderMesh> meshList;
+			meshList.Clear();
+
 			if (!proxy->IsVisible())
 				continue;
 
-			meshes.Add({ proxy, FMeshBuilder() });
-			FMeshBuilder& mesh = meshes.last()->Value;
+			//meshes.Add({ proxy, FMeshBuilder() });
+			//FMeshBuilder& mesh = meshes.last()->Value;
+			FMeshBuilder mesh(&meshList);
 
 			proxy->GetStaticMeshes(mesh);
 			proxy->GetSkinnedMeshes(mesh);
+
+			for (auto& m : meshList)
+				meshes.Add({ proxy, std::move(m) });
+			meshList.Clear();
 		}
 	}
 
@@ -102,12 +110,13 @@ void CEditorEngine::DoEditorRender()
 
 	for (auto& obj : meshes)
 	{
-		for (auto& mesh : obj.Value.GetMeshes())
-		{
+		auto& mesh = obj.Value;
+		//for (auto& mesh : obj.Value)
+		//{
 			FObjectInfoBuffer objectInfo;
 			objectInfo.transform = mesh.transform;
 			objectInfo.position = obj.Key->GetPosition();
-			memcpy(objectInfo.skeletonMatrices, mesh.skeletonMatrices.Data(), FMath::Min((int)mesh.skeletonMatrices.Size(), 48) * sizeof(FMatrix));
+			memcpy(objectInfo.skeletonMatrices, mesh.skeletonMatrices, FMath::Min((int)mesh.skeletonMatricesSize, 48) * sizeof(FMatrix));
 			objectBuffer->Update(sizeof(FObjectInfoBuffer), &objectInfo);
 
 			//IShader* _shader = mesh.mat->GetVsShader(ShaderType_DeferredPass);
@@ -118,6 +127,6 @@ void CEditorEngine::DoEditorRender()
 			gGHI->SetPsShader(shaderSelectOverlay->GetShader(ShaderType_Fragment));
 			
 			gGHI->DrawMesh(&mesh);
-		}
+		//}
 	}
 }

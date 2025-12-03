@@ -9,6 +9,7 @@
 #include "Game/GameInstance.h"
 #include "Game/Events.h"
 #include "Assets/Scene.h"
+#include "EditorConfig.h"
 
 #include "Rendering/Renderer.h"
 #include "Rendering/RenderScene.h"
@@ -20,6 +21,9 @@
 
 //CModule& GetModule_ThoriumEditor2();
 REGISTER_DEFAULT_MODULE(ThoriumEditorQt)
+
+CEditorVar evBoundBoxColor("BoundingBoxColor", "Viewport", FVariant(FColor::yellow));
+CEditorVar evBoundBoxActiveColor("BoundingBoxActiveColor", "Viewport", FVariant(FColor::orange));
 
 void CEditorEngine::Init()
 {
@@ -66,6 +70,8 @@ void CEditorEngine::Init()
 	io.IniFilename = (const char*)malloc(dataPath.Size() + 1);
 	memcpy((char*)io.IniFilename, dataPath.Data(), dataPath.Size() + 1);
 	ImGui::LoadIniSettingsFromDisk(io.IniFilename);*/
+
+	CEditorVar::Load();
 
 	if (!gameInstance)
 		SetGameInstance<CGameInstance>();
@@ -138,7 +144,10 @@ int CEditorEngine::Run()
 			for (auto& obj : selectedObjects)
 			{
 				CEntity* ent = Cast<CEntity>(obj);
-				gWorld->renderScene->DebugRenderer()->DrawBounds(ent->GetBounds(), FColor::yellow);
+				FColor boxColor = evBoundBoxColor.GetValue().AsColor();
+				FColor activeColor = evBoundBoxActiveColor.GetValue().AsColor();
+
+				gWorld->renderScene->DebugRenderer()->DrawBounds(ent->GetBounds(), obj == activeObject ? activeColor : boxColor);
 			}
 		}
 
@@ -171,6 +180,8 @@ int CEditorEngine::Run()
 
 void CEditorEngine::OnExit()
 {
+	CEditorVar::Save();
+
 	CEngine::OnExit();
 }
 

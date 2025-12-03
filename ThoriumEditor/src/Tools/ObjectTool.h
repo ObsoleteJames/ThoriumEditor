@@ -2,6 +2,9 @@
 
 #include "EditorTool.h"
 #include "DockWidget.h"
+#include "Object/Object.h"
+
+class FGizmo;
 
 class CObjectTool : public IEditorTool
 {
@@ -15,7 +18,11 @@ public:
 	void Enable() final;
 	void Disable() final;
 
+	void Update() final;
+
 private:
 	ads::CDockWidget* toolWindow;
+
+	TObjectPtr<FGizmo> gizmo;
 
 };

@@ -1,6 +1,11 @@
 
 #include "ObjectTool.h"
 #include "EditorWindow.h"
+#include "EditorEngine.h"
+#include "Gizmo.h"
+
+#include "Game/Entity.h"
+#include "Game/Components/SceneComponent.h"
 
 #include <QBoxLayout>
 #include <QGridLayout>
@@ -10,6 +15,8 @@
 CObjectTool::CObjectTool()
 {
 	setObjectName("Object Tool");
+
+	gizmo = new FGizmo();
 }
 
 void CObjectTool::Init()
@@ -18,6 +25,7 @@ void CObjectTool::Init()
 	toolWindow->setIcon(QIcon(":/icons/entity.svg"));
 	icon = toolWindow->icon();
 	//toolWindow->setFeature(ads::CDockWidget::DockWidgetClosable, false);
+
 
 	QWidget* widget = new QWidget(toolWindow);
 	QVBoxLayout* layout = new QVBoxLayout(toolWindow);
@@ -57,4 +65,24 @@ void CObjectTool::Enable()
 void CObjectTool::Disable()
 {
 	toolWindow->toggleView(false);
+}
+
+void CObjectTool::Update()
+{
+	if (!gWorld)
+		return;
+
+	gizmo->renderScene = gWorld->GetRenderScene();
+	if (gEditorEngine()->activeObject)
+	{
+		CEntity* ent = Cast<CEntity>(gEditorEngine()->activeObject);
+
+		if (ent)
+		{
+			FVector pos = ent->RootComponent()->GetWorldPosition();
+			FQuaternion rot = ent->RootComponent()->GetWorldRotation();
+			FVector scale = ent->RootComponent()->GetWorldScale();
+			gizmo->Manipulate(nullptr, nullptr, true, pos, rot, scale);
+		}
+	}
 }

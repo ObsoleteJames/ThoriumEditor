@@ -347,7 +347,12 @@ void CViewportWidget::DoMousePick(const QPointF& mousePos)
 		if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
 		{
 			if (gEditorEngine()->IsObjectSelected(ent))
-				gEditorEngine()->RemoveSelectedObject(ent);
+			{
+				if (gEditorEngine()->activeObject == ent)
+					gEditorEngine()->RemoveSelectedObject(ent);
+				else
+					gEditorEngine()->activeObject = ent;
+			}
 			else
 				gEditorEngine()->AddSelectedObject(ent);
 		}

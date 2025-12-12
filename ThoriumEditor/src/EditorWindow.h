@@ -67,6 +67,8 @@ public slots:
 
 	void updateTitle();
 
+	void mousePick(const FRay& ray, bool bIsRightMouse);
+
 protected:
 	void closeEvent(QCloseEvent* event) override;
 

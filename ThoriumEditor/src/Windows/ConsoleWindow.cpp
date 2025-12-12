@@ -1,4 +1,3 @@
-
 #include "ConsoleWindow.h"
 #include "EditorEngine.h"
 
@@ -6,6 +5,10 @@
 #include <QBoxLayout>
 #include <QTextEdit>
 #include <QLineEdit>
+#include <QCompleter>
+#include <QStringListModel>
+#include <QKeyEvent>
+#include <QAbstractItemView>
 
 const char* logTypeText[] = {
 	"",
@@ -50,6 +53,22 @@ CConsoleWidget::CConsoleWidget(QWidget* parent /*= nullptr*/) : ads::CDockWidget
 	input->setFont(consoleLog->font());
 
 	layout->addWidget(input);
+
+	completionModel = new QStringListModel(this);
+	completion = new QCompleter(completionModel, this);
+	completion->setCaseSensitivity(Qt::CaseInsensitive);
+	completion->setFilterMode(Qt::MatchContains);
+	completion->setCompletionMode(QCompleter::PopupCompletion);
+	input->setCompleter(completion);
+
+	QStringList cmds;
+	for (auto& cmd : CConsole::GetConCmds())
+		cmds.push_back(cmd->Name().c_str());
+	for (auto& cmd : CConsole::GetConVars())
+		cmds.push_back(cmd->Name().c_str());
+	completionModel->setStringList(cmds);
+
+	input->installEventFilter(this);
 
 	const auto& logPtr = CConsole::GetMsgCache();
 	for (auto log : logPtr)
@@ -111,4 +130,26 @@ void CConsoleWidget::OnLog(const FConsoleMsg& msg)
 	consoleLog->insertPlainText((msg.msg + "\n").c_str());
 	consoleLog->moveCursor(QTextCursor::End);
 	consoleLog->setTextBackgroundColor(QColor(0, 0, 0, 0));
+}
+
+bool CConsoleWidget::eventFilter(QObject* obj, QEvent* ev)
+{
+	if (obj == input && ev->type() == QEvent::KeyPress)
+	{
+		QKeyEvent* ke = static_cast<QKeyEvent*>(ev);
+		// Show completions on Tab explicitly (so Tab cycles/pops up suggestions)
+		if (ke->key() == Qt::Key_Tab)
+		{
+			// If popup is already visible, let the completer handle navigation.
+			if (!completion->popup()->isVisible())
+			{
+				// Trigger completion using current text
+				completion->complete();
+			}
+
+			// consume the Tab key so focus does not change
+			return true;
+		}
+	}
+	return ads::CDockWidget::eventFilter(obj, ev);
 }

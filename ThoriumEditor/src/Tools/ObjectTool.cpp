@@ -3,6 +3,7 @@
 #include "EditorWindow.h"
 #include "EditorEngine.h"
 #include "Gizmo.h"
+#include "Game/Events.h"
 
 #include "Game/Entity.h"
 #include "Game/Components/SceneComponent.h"
@@ -12,11 +13,46 @@
 #include <QLabel>
 #include <QGroupBox>
 
+//class PObjectTool : public CObject
+//{
+//public:
+//	PObjectTool(CObjectTool* tool)
+//	{
+//		Events::OnUpdate.Bind(this, &PObjectTool::Update);
+//	}
+//
+//	void Update()
+//	{
+//		if (!gWorld)
+//			return;
+//
+//		tool->gizmo->renderScene = gWorld->GetRenderScene();
+//		if (gEditorEngine()->activeObject)
+//		{
+//			CEntity* ent = Cast<CEntity>(gEditorEngine()->activeObject);
+//
+//			if (ent)
+//			{
+//				FVector pos = ent->RootComponent()->GetWorldPosition();
+//				FQuaternion rot = ent->RootComponent()->GetWorldRotation();
+//				FVector scale = ent->RootComponent()->GetWorldScale();
+//				tool->gizmo->Manipulate(nullptr, nullptr, true, pos, rot, scale);
+//			}
+//		}
+//	}
+//
+//public:
+//	CObjectTool* tool;
+//};
+
 CObjectTool::CObjectTool()
 {
 	setObjectName("Object Tool");
+	//p = new PObjectTool(this);
 
 	gizmo = new FGizmo();
+
+	Events::OnUpdate.Bind(this, &CObjectTool::GameUpdate);
 }
 
 void CObjectTool::Init()
@@ -25,7 +61,6 @@ void CObjectTool::Init()
 	toolWindow->setIcon(QIcon(":/icons/entity.svg"));
 	icon = toolWindow->icon();
 	//toolWindow->setFeature(ads::CDockWidget::DockWidgetClosable, false);
-
 
 	QWidget* widget = new QWidget(toolWindow);
 	QVBoxLayout* layout = new QVBoxLayout(toolWindow);
@@ -55,6 +90,7 @@ void CObjectTool::Init()
 
 	gEditorWindow->getDockManager()->addDockWidget(ads::LeftDockWidgetArea, toolWindow);
 	toolWindow->toggleView(false);
+
 }
 
 void CObjectTool::Enable()
@@ -69,7 +105,11 @@ void CObjectTool::Disable()
 
 void CObjectTool::Update()
 {
-	if (!gWorld)
+}
+
+void CObjectTool::GameUpdate()
+{
+	if (!gWorld || !gWorld->GetRenderScene())
 		return;
 
 	gizmo->renderScene = gWorld->GetRenderScene();

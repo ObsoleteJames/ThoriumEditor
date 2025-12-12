@@ -102,6 +102,10 @@ protected:
 	FAssetClass* targetClass;
 };
 
+/*
+ *	Content Browser Widget
+ *	Displays the content of game/mod directories and allows browsing/importing assets.
+ */
 class EDITOR_API CContentBrowserWidget : public QWidget
 {
 	Q_OBJECT

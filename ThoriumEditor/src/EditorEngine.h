@@ -41,6 +41,7 @@ public:
 
 public:
 	void PushEvent(IEditorEvent* event);
+	void PushEvent(EEventExec time, std::function<void()> func);
 
 	void SelectObject(CObject* obj);
 	void SelectObjects(const TArray<CObject*>& objs);

@@ -215,7 +215,12 @@ void CViewportWidget::mouseReleaseEvent(QMouseEvent* event)
 	case Qt::LeftButton:
 	{
 		if (mouseClickPos == event->globalPos())
-			DoMousePick(event->localPos());
+		{
+			auto mousePos = event->localPos();
+			FRay ray = FRay::MouseToRay(camera, { (float)mousePos.x(), (float)mousePos.y() }, { (float)width(), (float)height() });
+			ray.direction = ray.direction.Normalize();
+			emit onMousePick(ray, false);
+		}
 
 		bMouseLeft = false;
 	}
@@ -223,17 +228,23 @@ void CViewportWidget::mouseReleaseEvent(QMouseEvent* event)
 	case Qt::RightButton:
 		if (bMouseRight)
 		{
-			bMouseRight = false;
+			if (mouseClickPos == event->globalPos())
+			{
+				auto mousePos = event->localPos();
+				FRay ray = FRay::MouseToRay(camera, { (float)mousePos.x(), (float)mousePos.y() }, { (float)width(), (float)height() });
+				ray.direction = ray.direction.Normalize();
+				emit onMousePick(ray, true);
+			}
 
-			// do right click on entity
+			bMouseRight = false;
 		}
 		if (bRotateCam)
 		{
-			if (mode == ECameraControlMode::FreeMode)
-			{
+			//if (mode == ECameraControlMode::FreeMode)
+			//{
 				QApplication::restoreOverrideCursor();
 				QCursor::setPos(mouseClickPos);
-			}
+			//}
 
 			bRotateCam = false;
 		}
@@ -325,40 +336,40 @@ void CViewportWidget::resizeEvent(QResizeEvent* event)
 		camera->renderTarget = GetSwapChain()->GetFrameBuffer();*/
 }
 
-void CViewportWidget::DoMousePick(const QPointF& mousePos)
-{
-	FRay ray = FRay::MouseToRay(camera, { (float)mousePos.x(), (float)mousePos.y() }, { (float)width(), (float)height() });
-	ray.direction = ray.direction.Normalize();
-
-	auto* scene = gWorld->GetRenderScene();
-
-	FPrimitiveHitInfo hit;
-
-	if (scene->RayCast(ray.origin, ray.direction, &hit))
-	{
-		CEntity* ent = nullptr;
-
-		TObjectPtr<CObject> obj = hit.hitProxy->GetOwner();
-		if (auto comp = CastChecked<CSceneComponent>(obj); comp)
-		{
-			ent = comp->GetEntity();
-		}
-
-		if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-		{
-			if (gEditorEngine()->IsObjectSelected(ent))
-			{
-				if (gEditorEngine()->activeObject == ent)
-					gEditorEngine()->RemoveSelectedObject(ent);
-				else
-					gEditorEngine()->activeObject = ent;
-			}
-			else
-				gEditorEngine()->AddSelectedObject(ent);
-		}
-		else
-			gEditorEngine()->SelectObject(ent);
-	}
-	else
-		gEditorEngine()->ClearSelection();
-}
+//void CViewportWidget::DoMousePick(const QPointF& mousePos)
+//{
+//	FRay ray = FRay::MouseToRay(camera, { (float)mousePos.x(), (float)mousePos.y() }, { (float)width(), (float)height() });
+//	ray.direction = ray.direction.Normalize();
+//
+//	auto* scene = gWorld->GetRenderScene();
+//
+//	FPrimitiveHitInfo hit;
+//
+//	if (scene->RayCast(ray.origin, ray.direction, &hit))
+//	{
+//		CEntity* ent = nullptr;
+//
+//		TObjectPtr<CObject> obj = hit.hitProxy->GetOwner();
+//		if (auto comp = CastChecked<CSceneComponent>(obj); comp)
+//		{
+//			ent = comp->GetEntity();
+//		}
+//
+//		if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+//		{
+//			if (gEditorEngine()->IsObjectSelected(ent))
+//			{
+//				if (gEditorEngine()->activeObject == ent)
+//					gEditorEngine()->RemoveSelectedObject(ent);
+//				else
+//					gEditorEngine()->activeObject = ent;
+//			}
+//			else
+//				gEditorEngine()->AddSelectedObject(ent);
+//		}
+//		else
+//			gEditorEngine()->SelectObject(ent);
+//	}
+//	else
+//		gEditorEngine()->ClearSelection();
+//}

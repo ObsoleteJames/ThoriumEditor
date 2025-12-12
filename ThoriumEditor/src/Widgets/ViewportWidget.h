@@ -43,7 +43,10 @@ protected:
 	void showEvent(QShowEvent* event) override;
 	void resizeEvent(QResizeEvent* event) override;
 
-	void DoMousePick(const QPointF& mousePos);
+	//void DoMousePick(const QPointF& mousePos);
+
+Q_SIGNALS:
+	void onMousePick(const FRay& ray, bool bIsRightMouse);
 
 public Q_SLOTS:
 	void OnUpdate();

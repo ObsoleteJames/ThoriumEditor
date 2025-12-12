@@ -6,6 +6,7 @@
 #include "EditorTool.h"
 #include "Game/World.h"
 #include "Game/Entity.h"
+#include "Rendering/RenderScene.h"
 #include "Assets/Scene.h"
 #include <Util/KeyValue.h>
 
@@ -311,6 +312,8 @@ void CEditorWindow::SetupUi()
 	connect(actGizmoTranslate, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Translate); });
 	connect(actGizmoRotate, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Rotate); });
 	connect(actGizmoScale, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Scale); });
+	
+	connect(worldViewports[0], &CViewportWidget::onMousePick, this, &CEditorWindow::mousePick);
 
 	connect(sceneUndoStack, &QUndoStack::cleanChanged, this, [=]() {
 		updateTitle();
@@ -451,6 +454,57 @@ void CEditorWindow::updateTitle()
 			name += "*";
 
 		setWindowTitle("Thorium Editor - " + name);
+	}
+}
+
+void CEditorWindow::mousePick(const FRay& ray, bool bIsRightMouse)
+{
+	auto* scene = gWorld->GetRenderScene();
+
+	FPrimitiveHitInfo hit;
+
+	bool bHit = scene->RayCast(ray.origin, ray.direction, &hit);
+
+	if (!bIsRightMouse)
+	{
+		if (bHit)
+		{
+			CEntity* ent = nullptr;
+
+			TObjectPtr<CObject> obj = hit.hitProxy->GetOwner();
+			if (auto comp = CastChecked<CSceneComponent>(obj); comp)
+			{
+				ent = comp->GetEntity();
+			}
+
+			if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+			{
+				if (gEditorEngine()->IsObjectSelected(ent))
+				{
+					if (gEditorEngine()->activeObject == ent)
+						gEditorEngine()->RemoveSelectedObject(ent);
+					else
+						gEditorEngine()->activeObject = ent;
+				}
+				else
+					gEditorEngine()->AddSelectedObject(ent);
+			}
+			else
+				gEditorEngine()->SelectObject(ent);
+		}
+		else
+			gEditorEngine()->ClearSelection();
+	}
+	else
+	{
+		CEntity* ent = nullptr;
+
+		TObjectPtr<CObject> obj = hit.hitProxy->GetOwner();
+		if (auto comp = CastChecked<CSceneComponent>(obj); comp)
+			ent = comp->GetEntity();
+
+		if (ent)
+			DoEntityContextMenu(ent, QCursor::pos());
 	}
 }
 

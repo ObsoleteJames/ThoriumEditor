@@ -10,12 +10,6 @@
 CEngineThread* gEngineThread = nullptr;
 QSplashScreen* gSplashscreen = nullptr;
 
-void _EngineThread()
-{
-	//gEngine->LoadProject("C:\\Users\\theon\\Documents\\Thorium Projects\\RollerCoasterGame");
-	gEngine->Run();
-}
-
 bool StartEngineThread(const FString& project)
 {
 	bool r = true;

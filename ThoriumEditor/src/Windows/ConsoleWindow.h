@@ -5,6 +5,8 @@
 
 class QLineEdit;
 class QTextEdit;
+class QCompleter;
+class QStringListModel;
 
 class CConsoleWidget : public ads::CDockWidget
 {
@@ -16,10 +18,14 @@ public:
 
 private:
 	void OnLog(const FConsoleMsg& msg);
+	bool eventFilter(QObject* obj, QEvent* ev) override;
 
 private:
 	QTextEdit* consoleLog;
 	QLineEdit* input;
+
+	QCompleter* completion;
+	QStringListModel* completionModel;
 
 	SizeType onLogBinding;
 };

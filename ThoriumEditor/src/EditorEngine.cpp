@@ -111,12 +111,15 @@ int CEditorEngine::Run()
 				gWorld->Start();
 		}
 
+		Events::OnUpdate.Invoke();
+
 		if (!bPaused || bStepFrame)
 		{
 			gWorld->Update(FMath::Min(deltaTime, 0.25));
 			bStepFrame = false;
 		}
 
+		Events::PostUpdate.Invoke();
 		UpdateEvents(EventExec_PostUpdate);
 
 		if (bWantsToExit)
@@ -125,6 +128,7 @@ int CEditorEngine::Run()
 		if (!gEditorWindow)
 			return 0;
 
+		Events::OnRender.Invoke();
 		UpdateEvents(EventExec_PreRender);
 
 		//CViewportWidget* viewport = gEditorWindow->worldViewport;
@@ -163,6 +167,7 @@ int CEditorEngine::Run()
 		//gGHI->SetFrameBuffer(viewport->GetSwapChain()->GetFrameBuffer(), viewport->GetSwapChain()->GetDepthBuffer());
 		//gGHI->ImGuiRender();
 
+		Events::PostRender.Invoke();
 		UpdateEvents(EventExec_PostRender);
 
 		for (int i = 0; i < 4; i++)
@@ -190,6 +195,26 @@ void CEditorEngine::PushEvent(IEditorEvent* event)
 	eventMutex.lock();
 	events.Add(event);
 	eventMutex.unlock();
+}
+
+void CEditorEngine::PushEvent(EEventExec time, std::function<void()> func)
+{
+	class LambdaEvent : public IEditorEvent
+	{
+	public:
+		LambdaEvent(std::function<void()> func) : IEditorEvent(), func(func)
+		{
+		}
+		void Exec() override
+		{
+			func();
+		}
+	public:
+		std::function<void()> func;
+	};
+	LambdaEvent* event = new LambdaEvent(func);
+	event->execTime = time;
+	PushEvent(event);
 }
 
 void CEditorEngine::SelectObject(CObject* obj)

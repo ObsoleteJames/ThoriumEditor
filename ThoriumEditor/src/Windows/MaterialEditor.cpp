@@ -13,6 +13,8 @@
 #include <QTableView>
 #include <QStandardItemModel>
 #include <QHeaderView>
+#include <QScrollArea>
+#include <QLabel>
 
 SDK_REGISTER_WINDOW(CMaterialEditor, "Material Editor", "Tools", NULL);
 
@@ -74,21 +76,27 @@ void CMaterialEditor::SetupUi()
 
 	// Properties
 	{
-		propertiesView = new QTableView(this);
-		propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-		propertiesView->verticalHeader()->setVisible(false);
-		propertiesView->setSortingEnabled(true);
-		propertiesView->horizontalHeader()->setStretchLastSection(true);
-		//propertiesView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-		propertiesView->horizontalHeader()->setSortIndicatorShown(true);
+		//QScrollArea* propScroll = new QScrollArea(this);
+		propertiesWidget = new QWidget(this);
+		QVBoxLayout* layout = new QVBoxLayout(propertiesWidget);
+		propertiesWidget->setLayout(layout);
+		//propScroll->setWidget(propertiesWidget);
 
-		auto* propDock = new ads::CDockWidget("Properties", this);
-		propDock->setObjectName("materialeditor_properties_dockwidget");
-		propDock->setWidget(propertiesView);
-		dockmanager->addDockWidget(ads::LeftDockWidgetArea, propDock);
+		QLabel* infoLabel = new QLabel("No material selected", propertiesWidget);
+		layout->addWidget(infoLabel);
 
-		propertiesModel = new QStandardItemModel(this);
-		propertiesView->setModel(propertiesModel);
+		propertiesDock = new ads::CDockWidget("Properties", this);
+		propertiesDock->setObjectName("materialeditor_properties_dockwidget");
+		propertiesDock->setWidget(propertiesWidget);
+		dockmanager->addDockWidget(ads::LeftDockWidgetArea, propertiesDock);
+	}
+
+	// Shader Settins
+	{
+		//settingsDock = new ads::CDockWidget("Shader Settings", this);
+		//settingsDock->setObjectName("materialeditor_shadersettings_dockwidget");
+		//settingsDock->setWidget(settingsView);
+		//dockmanager->addDockWidget(ads::LeftDockWidgetArea, settingsDock);
 	}
 
 	RestoreState();
@@ -102,9 +110,9 @@ void CMaterialEditor::Init()
 	world = CreateObject<CWorld>();
 	world->InitWorld(CWorld::InitializeInfo().CreateAISystems(false).CreatePhyiscsWorld(false).RegisterForRendering(false));
 	
-	//TObjectPtr<CEntity> modelEnt = world->CreateEntity<CEntity>();
-	//modelComp = modelEnt->AddComponent<CModelComponent>("Model");
-	//modelComp->SetModel("models/Sphere.thasset");
+	TObjectPtr<CEntity> modelEnt = world->CreateEntity<CEntity>();
+	modelComp = modelEnt->AddComponent<CModelComponent>("Model");
+	modelComp->SetModel("models/Sphere.thasset");
 
 	cam = new CCameraProxy();
 	viewport->SetControlMode(ECameraControlMode::Orbit);
@@ -147,8 +155,8 @@ void CMaterialEditor::SetMaterial(CMaterial* mat)
 		return;
 
 	material = mat;
-
-	UpdateProperties();
+	modelComp->SetMaterial(mat);
+	//UpdateProperties();
 }
 
 void CMaterialEditor::NewMaterial()
@@ -161,9 +169,12 @@ void CMaterialEditor::OpenMaterial()
 
 void CMaterialEditor::UpdateProperties()
 {
-	propertiesModel->clear();
-	propertiesModel->setHorizontalHeaderLabels({ "Name", "Value" });
-	propertiesModel->setColumnCount(2);
+	//for (auto w : curProperties)
+	//{
+	//	propertiesWidget->layout()->removeWidget((QWidget*)w);
+	//	w->deleteLater();
+	//}
+	curProperties.Clear();
 
 	if (!material)
 		return;
@@ -172,11 +183,9 @@ void CMaterialEditor::UpdateProperties()
 	
 	for (auto& prop : material->properties)
 	{
-		QList<QStandardItem*> rowItems;
-		QStandardItem* nameItem = new QStandardItem(prop.name.c_str());
-		rowItems.append(nameItem);
-		QStandardItem* valueItem = new QStandardItem(material->GetShaderProperty(prop)->initValue.c_str());
-		rowItems.append(valueItem);
-		propertiesModel->appendRow(rowItems);
+		QLabel* item = new QLabel(prop.name.c_str(), propertiesWidget);
+
+		propertiesWidget->layout()->addWidget(item);
+		curProperties.Add(item);
 	}
 }

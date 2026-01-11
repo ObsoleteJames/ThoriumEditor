@@ -49,7 +49,11 @@ private:
 
 	QUndoStack* undoStack = nullptr;
 
-	QTableView* propertiesView = nullptr;
-	QStandardItemModel* propertiesModel = nullptr;
+	QWidget* propertiesWidget;
+	QWidget* settingsWidget;
 
+	ads::CDockWidget* propertiesDock = nullptr;
+	ads::CDockWidget* settingsDock = nullptr;
+
+	TArray<QWidget*> curProperties;
 };

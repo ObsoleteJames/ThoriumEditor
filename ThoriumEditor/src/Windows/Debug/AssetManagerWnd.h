@@ -31,4 +31,6 @@ private:
 	QFrame* Properties;
 	QVBoxLayout* propertiesLayout;
 
+	QSplitter* splitter;
+
 };

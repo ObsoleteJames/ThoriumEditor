@@ -113,9 +113,9 @@ void CObjectTool::GameUpdate()
 		return;
 
 	gizmo->renderScene = gWorld->GetRenderScene();
-	if (gEditorEngine()->activeObject)
+	if (gEditorEngine->activeObject)
 	{
-		CEntity* ent = Cast<CEntity>(gEditorEngine()->activeObject);
+		CEntity* ent = Cast<CEntity>(gEditorEngine->activeObject);
 
 		if (ent)
 		{

@@ -9,6 +9,7 @@
 #include "FramelessDialog.h"
 #include "EditorEngine.h"
 #include "System.h"
+#include "EditorConfig.h"
 
 #include <QSplitter>
 #include <QBoxLayout>
@@ -27,6 +28,9 @@
 #include <QStandardItemModel>
 
 #define ASSET_MAX_GRID_SIZE 5
+
+CEditorVar evThumbnailMaxSize("Asset Thumbnail Max Size", "Appearance", FVariant(128));
+CEditorVar evEnableThumbnails("Show Asset Thumbnails", "Appearance", FVariant(true));
 
 FAssetBrowserAction::FAssetBrowserAction()
 {

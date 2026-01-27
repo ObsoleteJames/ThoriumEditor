@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QSpinBox>
 #include <QHeaderView>
+#include <QScrollArea>
 
 SDK_REGISTER_WINDOW(CEditorSettingsWnd, "Editor Settings", "Edit", NULL);
 
@@ -50,26 +51,31 @@ void CEditorSettingsWnd::SetupUi()
 	settingsView = new QWidget(this);
 	settingsView->setLayout(new QHBoxLayout());
 	settingsView->layout()->setContentsMargins(0, 0, 0, 0);
-	splitter->addWidget(settingsView);
+
+	QScrollArea* scrollArea = new QScrollArea(this);
+	scrollArea->setWidget(settingsView);
+	scrollArea->setWidgetResizable(true);
+
+	splitter->addWidget(scrollArea);
 
 	splitter->setStretchFactor(0, 2);
 	splitter->setStretchFactor(1, 6);
 
-	//sGeneral = new QTreeWidget(this);
-	//sGeneral->setHeaderLabels({ "Name", "Value" });
-	//sGeneral->setItemDelegate(new CGridViewDelegate(this));
-	//sGeneral->header()->resizeSection(0, 250);
-	//settingsView->layout()->addWidget(sGeneral);
+	auto* sGeneral = new QTreeWidget(this);
+	sGeneral->setHeaderLabels({ "Name", "Value" });
+	sGeneral->setItemDelegate(new CGridViewDelegate(this));
+	sGeneral->header()->resizeSection(0, 250);
+	settingsView->layout()->addWidget(sGeneral);
 
-	//auto* item = new QTreeWidgetItem(sGeneral);
-	//item->setText(0, "Uhh");
-	//item->setExpanded(true);
+	auto* item = new QTreeWidgetItem(sGeneral);
+	item->setText(0, "Uhh");
+	item->setExpanded(true);
 
-	//auto* item2 = new QTreeWidgetItem();
-	//item2->setText(0, "AAA");
-	//item->addChild(item2);
+	auto* item2 = new QTreeWidgetItem();
+	item2->setText(0, "AAA");
+	item->addChild(item2);
 
-	//auto* intItem = new QSpinBox(this);
-	//intItem->setValue(6969);
-	//sGeneral->setItemWidget(item2, 1, intItem);
+	auto* intItem = new QSpinBox(this);
+	intItem->setValue(6969);
+	sGeneral->setItemWidget(item2, 1, intItem);
 }

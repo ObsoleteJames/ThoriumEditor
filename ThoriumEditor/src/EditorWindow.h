@@ -21,6 +21,7 @@ class IEditorTool;
 class CContentBrowserWidget;
 class COutlinerWindow;
 class QUndoStack;
+class CPropertiesWidget;
 
 extern EDITOR_API CEditorWindow* gEditorWindow;
 
@@ -83,6 +84,7 @@ public:
 	ads::CDockWidget* gameDock = nullptr;
 	COutlinerWindow* outliner = nullptr;
 	ads::CDockWidget* historyDock = nullptr;
+	CPropertiesWidget* propertiesWidget = nullptr;
 
 	QUndoStack* sceneUndoStack;
 

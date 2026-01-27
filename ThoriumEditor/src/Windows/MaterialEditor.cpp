@@ -33,7 +33,7 @@ public:
 		FString path = d->file->Path();
 		
 		//wnd->SetMaterial(CAssetManager::GetAsset<CMaterial>(d->file->Path()));
-		gEditorEngine()->PushEvent(EventExec_PreUpdate, [wnd, path]() {
+		gEditorEngine->PushEvent(EventExec_PreUpdate, [wnd, path]() {
 			wnd->SetMaterial(CAssetManager::GetAsset<CMaterial>(path));
 		});
 	}
@@ -102,7 +102,7 @@ void CMaterialEditor::SetupUi()
 	RestoreState();
 
 	//Init();
-	gEditorEngine()->PushEvent(EventExec_PreUpdate, [this]() { this->Init(); });
+	gEditorEngine->PushEvent(EventExec_PreUpdate, [this]() { this->Init(); });
 }
 
 void CMaterialEditor::Init()

@@ -40,7 +40,6 @@ CFramelessDialog::CFramelessDialog(QWidget* parent) : QDialog(parent)
 	layout->setContentsMargins(0, 0, 0, 0);
 
 	layout->addWidget(titlebarWidget);
-
 }
 
 CFramelessDialog::~CFramelessDialog()

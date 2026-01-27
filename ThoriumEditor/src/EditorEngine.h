@@ -85,4 +85,5 @@ public: // Rendering
 
 };
 
-inline CEditorEngine* gEditorEngine() { return (CEditorEngine*)gEngine; }
+//inline CEditorEngine* gEditorEngine() { return (CEditorEngine*)gEngine; }
+#define gEditorEngine ((CEditorEngine*)gEngine)

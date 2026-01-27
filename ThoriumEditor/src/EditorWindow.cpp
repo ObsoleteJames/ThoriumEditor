@@ -15,6 +15,7 @@
 #include "ProjectManagerWindow.h"
 #include "Windows/ConsoleWindow.h"
 #include "Windows/OutlinerWindow.h"
+#include "Windows/PropertiesWidget.h"
 #include "Widgets/RenderWidget.h"
 #include "Widgets/ContentBrowser.h"
 #include "Widgets/ViewportWidget.h"
@@ -150,8 +151,8 @@ void CEditorWindow::SetupUi()
 	actFocusObj = menuEdit->addAction("Focus", QKeySequence(Qt::Key_F));
 	actToggleVisObj = menuEdit->addAction("Toggle Visibility", QKeySequence(Qt::Key_H));
 	menuEdit->addSeparator();
-	menuEdit->addAction("Project Settings");
 	menuEdit->addAction("Editor Settings");
+	menuEdit->addAction("Project Settings");
 
 	menuCode->addAction(QIcon(":/apps/app_visualstudio.svg"), "Generate Visual Studio Project");
 	menuCode->addAction(QIcon(":/apps/app_visualstudio.svg"), "Open Visual Studio Project");
@@ -180,7 +181,7 @@ void CEditorWindow::SetupUi()
 		dockmanager->addDockWidget(ads::CenterDockWidgetArea, sceneDock);
 
 		worldViewports[0] = new CViewportWidget(this);
-		worldViewports[0]->SetCamera(gEditorEngine()->viewportCams[0]);
+		worldViewports[0]->SetCamera(gEditorEngine->viewportCams[0]);
 		layoutA->addWidget(worldViewports[0]);
 
 		/*worldViewports[1] = new CViewportWidget(this);
@@ -227,6 +228,9 @@ void CEditorWindow::SetupUi()
 
 	outliner = new COutlinerWindow(this);
 	dockmanager->addDockWidget(ads::RightDockWidgetArea, outliner);
+
+	propertiesWidget = new CPropertiesWidget(this);
+	dockmanager->addDockWidget(ads::RightDockWidgetArea, propertiesWidget, outliner->dockAreaWidget());
 
 	{
 		QWidget* widget = new QWidget(this);
@@ -298,6 +302,7 @@ void CEditorWindow::SetupUi()
 	menuView->addAction(contentBrowser->toggleViewAction());
 	menuView->addAction(outliner->toggleViewAction());
 	menuView->addAction(historyDock->toggleViewAction());
+	menuView->addAction(propertiesWidget->toggleViewAction());
 	menuView->addSeparator();
 	menuView->addAction("Reload Style", this, [=]() { LoadStyleSheet(); });
 
@@ -479,21 +484,21 @@ void CEditorWindow::mousePick(const FRay& ray, bool bIsRightMouse)
 
 			if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
 			{
-				if (gEditorEngine()->IsObjectSelected(ent))
+				if (gEditorEngine->IsObjectSelected(ent))
 				{
-					if (gEditorEngine()->activeObject == ent)
-						gEditorEngine()->RemoveSelectedObject(ent);
+					if (gEditorEngine->activeObject == ent)
+						gEditorEngine->RemoveSelectedObject(ent);
 					else
-						gEditorEngine()->activeObject = ent;
+						gEditorEngine->activeObject = ent;
 				}
 				else
-					gEditorEngine()->AddSelectedObject(ent);
+					gEditorEngine->AddSelectedObject(ent);
 			}
 			else
-				gEditorEngine()->SelectObject(ent);
+				gEditorEngine->SelectObject(ent);
 		}
 		else
-			gEditorEngine()->ClearSelection();
+			gEditorEngine->ClearSelection();
 	}
 	else
 	{

@@ -148,7 +148,7 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 			selectedObjects.Add((CEntity*)ent);
 		}
 
-		gEditorEngine()->SelectObjects(selectedObjects);
+		gEditorEngine->SelectObjects(selectedObjects);
 	});
 	connect(outlinerTree, &QTreeWidget::customContextMenuRequested, this, [=](const QPoint& point) {
 		QTreeWidgetItem* item = outlinerTree->itemAt(point);
@@ -333,7 +333,7 @@ void COutlinerWindow::selectionChanged()
 	for (auto it : entityItems)
 	{
 		if (it.first)
-			it.second->setSelected(gEditorEngine()->IsObjectSelected((CEntity*)it.second->data(0, Qt::UserRole).value<SizeType>()));
+			it.second->setSelected(gEditorEngine->IsObjectSelected((CEntity*)it.second->data(0, Qt::UserRole).value<SizeType>()));
 	}
 	outlinerTree->blockSignals(false);
 }

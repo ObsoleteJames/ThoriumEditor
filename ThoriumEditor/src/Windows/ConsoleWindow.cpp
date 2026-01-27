@@ -92,7 +92,7 @@ CConsoleWidget::CConsoleWidget(QWidget* parent /*= nullptr*/) : ads::CDockWidget
 			std::string input;
 		};
 		ConsoleExecEvent* event = new ConsoleExecEvent(input->text().toStdString());
-		gEditorEngine()->PushEvent(event);
+		gEditorEngine->PushEvent(event);
 
 		input->clear();
 	});

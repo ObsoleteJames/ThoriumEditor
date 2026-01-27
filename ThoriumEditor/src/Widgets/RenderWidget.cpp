@@ -336,7 +336,7 @@ void CRenderWidget::resizeEvent(QResizeEvent* event)
 		IBaseWindow* window;
 	};
 	if (swapChain)
-		gEditorEngine()->PushEvent(new RenderResizeEvent(this, windowInterface, width, height));
+		gEditorEngine->PushEvent(new RenderResizeEvent(this, windowInterface, width, height));
 }
 
 class FMouseBtnEvent : public IEditorEvent
@@ -360,7 +360,7 @@ public:
 void CRenderWidget::mousePressEvent(QMouseEvent* event)
 {
 	FMouseBtnEvent* e = new FMouseBtnEvent(windowInterface, ConvertMouseBtn(event->button()), IE_PRESS, ConvertMod(event->modifiers()));
-	gEditorEngine()->PushEvent(e);
+	gEditorEngine->PushEvent(e);
 
 	QWidget::mousePressEvent(event);
 }
@@ -368,7 +368,7 @@ void CRenderWidget::mousePressEvent(QMouseEvent* event)
 void CRenderWidget::mouseReleaseEvent(QMouseEvent* event)
 {
 	FMouseBtnEvent* e = new FMouseBtnEvent(windowInterface, ConvertMouseBtn(event->button()), IE_PRESS, ConvertMod(event->modifiers()));
-	gEditorEngine()->PushEvent(e);
+	gEditorEngine->PushEvent(e);
 
 	QWidget::mouseReleaseEvent(event);
 }
@@ -391,7 +391,7 @@ void CRenderWidget::mouseMoveEvent(QMouseEvent* event)
 {
 	auto p = event->localPos();
 	FMouseMoveEvent* e = new FMouseMoveEvent(windowInterface, p.x(), p.y());
-	gEditorEngine()->PushEvent(e);
+	gEditorEngine->PushEvent(e);
 
 	QWidget::mouseMoveEvent(event);
 }
@@ -417,7 +417,7 @@ public:
 void CRenderWidget::keyPressEvent(QKeyEvent* event)
 {
 	FKeyEvent* e = new FKeyEvent(windowInterface, ConvertKey((Qt::Key)event->key()), IE_PRESS, ConvertMod(event->modifiers()));
-	gEditorEngine()->PushEvent(e);
+	gEditorEngine->PushEvent(e);
 
 	QWidget::keyPressEvent(event);
 }
@@ -425,7 +425,7 @@ void CRenderWidget::keyPressEvent(QKeyEvent* event)
 void CRenderWidget::keyReleaseEvent(QKeyEvent* event)
 {
 	FKeyEvent* e = new FKeyEvent(windowInterface, ConvertKey((Qt::Key)event->key()), IE_PRESS, ConvertMod(event->modifiers()));
-	gEditorEngine()->PushEvent(e);
+	gEditorEngine->PushEvent(e);
 
 	QWidget::keyPressEvent(event);
 }

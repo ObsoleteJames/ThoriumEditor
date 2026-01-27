@@ -36,7 +36,7 @@ public:
 
 			auto shader = CAssetManager::GetAsset<CShaderSource>(f->Path());
 			auto* event = new CompileShaderEvent(shader);
-			gEditorEngine()->PushEvent(event);
+			gEditorEngine->PushEvent(event);
 		});
 		action->setEnabled(bCompilable);
 

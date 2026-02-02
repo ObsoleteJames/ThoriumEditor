@@ -243,6 +243,17 @@ void CToolsWindow::RestoreState()
 	UserRestoreState(settings);
 }
 
+void CToolsWindow::closeEvent(QCloseEvent* event)
+{
+	if (Shutdown())
+	{
+		SaveState();
+		event->accept();
+	}
+	else
+		event->ignore();
+}
+
 TMap<SizeType, CToolsWindow*>& CToolsWindow::GetAll()
 {
 	return _Windows;

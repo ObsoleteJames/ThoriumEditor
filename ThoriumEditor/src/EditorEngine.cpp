@@ -71,8 +71,6 @@ void CEditorEngine::Init()
 	memcpy((char*)io.IniFilename, dataPath.Data(), dataPath.Size() + 1);
 	ImGui::LoadIniSettingsFromDisk(io.IniFilename);*/
 
-	CEditorVar::Load();
-
 	if (!gameInstance)
 		SetGameInstance<CGameInstance>();
 

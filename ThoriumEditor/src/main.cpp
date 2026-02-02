@@ -74,6 +74,7 @@ int main(int argc, char** argv)
 
 	int openProjectManager = true;
 
+	CEditorVar::Load();
 	CEditorWindow::LoadStyleSheet();
 
 	FKeyValue kv(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/Editor.cfg");

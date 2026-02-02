@@ -25,4 +25,6 @@ private:
 	TArray<IBasePropertyEditor*> editors;
 	FString typeName;
 
+	const FProperty* property;
+
 };

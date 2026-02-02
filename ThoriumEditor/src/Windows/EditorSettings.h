@@ -17,12 +17,20 @@ public:
 
 	void SetupUi() override;
 
+protected:
+	void UserSaveState(QSettings& out) override;
+	void UserRestoreState(QSettings& in) override;
+
+private slots:
+	void SwitchPage(int index);
+
 private:
 	QTreeWidget* settingsIndex;
 	QWidget* settingsView;
 	QSplitter* splitter;
 
-	//QTreeWidget* sGeneral;
-	//QTreeWidget* sAppearance;
+	QWidget* general;
+	QWidget* appearance;
 
+	int curPage = 0;
 };

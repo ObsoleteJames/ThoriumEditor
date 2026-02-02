@@ -43,7 +43,7 @@ CPropertiesWidget::CPropertiesWidget(QWidget* parent /*= nullptr*/) : ads::CDock
 	
 	l1->addWidget(nameEdit);
 
-	QPushButton* addCompBtn = new QPushButton(QIcon(":/icons/cross.svg"), "", this);
+	QPushButton* addCompBtn = new QPushButton(QIcon(":/icons/btn-add.svg"), "", this);
 	addCompBtn->setProperty("type", QVariant("clear"));
 	l1->addWidget(addCompBtn);
 
@@ -72,18 +72,18 @@ CPropertiesWidget::CPropertiesWidget(QWidget* parent /*= nullptr*/) : ads::CDock
 			menu.addAction("Add Component", this, &CPropertiesWidget::AddComponent);
 			if (c->CanCast(CEntityComponent::StaticClass()))
 			{
-				menu.addAction("Delete", this, [=]() {
+				QAction* del = menu.addAction("Delete", this, [=]() {
 					CEntityComponent* comp = (CEntityComponent*)obj;
 					Cast<CEntity>(targetObject)->RemoveComponent(comp);
 					selectedChild = targetObject;
 					editor->SetObject(targetObject);
 					UpdateUI();
-					});
+				});
+				del->setEnabled(Cast<CEntityComponent>(obj)->IsUserCreated());
 			}
 			menu.exec(childTree->mapToGlobal(point));
 		}
-
-		});
+	});
 	connect(childTree, &QTreeWidget::itemClicked, this, [=](QTreeWidgetItem* item, int) {
 		CObject* obj = (CObject*)item->data(0, 1000).toULongLong();
 		selectedChild = obj;

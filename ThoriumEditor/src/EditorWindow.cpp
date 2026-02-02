@@ -8,6 +8,7 @@
 #include "Game/Entity.h"
 #include "Rendering/RenderScene.h"
 #include "Assets/Scene.h"
+#include "Misc/FileHelper.h"
 #include <Util/KeyValue.h>
 
 #include "UndoActions/SceneUndoActions.h"
@@ -43,9 +44,14 @@
 #include <QUndoView>
 #include <QMessageBox>
 
+#include <filesystem>
+
 CEditorWindow* gEditorWindow = nullptr;
 
 SDK_REGISTER_WINDOW(CEditorWindow, "Editor Window", NULL, NULL);
+
+CEditorVar evEditorTheme("theme", "Apearance", FVariant("default"));
+static TArray<FString> availableThemes;
 
 CEditorWindow::CEditorWindow() : CToolsWindow()
 {
@@ -76,6 +82,8 @@ void CEditorWindow::SetupUi()
 {
 	if (gSplashscreen)
 		gSplashscreen->finish(this);
+
+	ScanAvailableThemes();
 
 	int x = QGuiApplication::primaryScreen()->geometry().width();
 	int y = QGuiApplication::primaryScreen()->geometry().height();
@@ -598,6 +606,22 @@ void CEditorWindow::SetupMenuBar()
 	}
 }
 
+void CEditorWindow::ScanAvailableThemes()
+{
+	FString enginePath = SSystem::GetEnginePath();
+
+	QString themePath = (enginePath + "/content/editor/themes/").c_str();
+	availableThemes.Clear();
+
+	for (auto& entry : std::filesystem::directory_iterator(themePath.toStdString()))
+	{
+		if (FFileHelper::FileExists((themePath + entry.path().filename().c_str() + "/theme").toStdString().c_str()))
+		{
+			availableThemes.Add(entry.path().filename().string().c_str());
+		}
+	}
+}
+
 bool CEditorWindow::TrySaveScene()
 {
 	if (!sceneUndoStack->isClean())
@@ -639,7 +663,7 @@ void CEditorWindow::LoadStyleSheet()
 
 	FString enginePath = SSystem::GetEnginePath();
 
-	QString themePath = (enginePath + "/content/editor/themes/default/").c_str();
+	QString themePath = (enginePath + "/content/editor/themes/" + CurTheme() + "/").c_str();
 	QString themeFilePath = themePath + "theme";
 	FKeyValue theme(themeFilePath.toUtf8().constData());
 	THORIUM_ASSERT(theme.IsOpen(), FString("Failed to open theme file '") + (const char*)themeFilePath.toUtf8().constData() + "'");
@@ -662,4 +686,29 @@ void CEditorWindow::LoadStyleSheet()
 	qApp->setStyleSheet(styleSheet);
 
 	QResource::registerResource(themePath + "icons.rcc");
+}
+
+void CEditorWindow::UnloadCurrentTheme()
+{
+	QResource::unregisterResource((SSystem::GetEnginePath() + "/content/editor/themes/" + CurTheme() + "/icons.rcc").c_str());
+}
+
+void CEditorWindow::SetTheme(const FString& themeName)
+{
+	for (const auto& t : availableThemes)
+	{
+		if (t == themeName)
+		{
+			UnloadCurrentTheme();
+
+			evEditorTheme.SetValue(FVariant(themeName));
+			LoadStyleSheet();
+			return;
+		}
+	}
+}
+
+const TArray<FString>& CEditorWindow::GetAvailableThemes()
+{
+	return availableThemes;
 }

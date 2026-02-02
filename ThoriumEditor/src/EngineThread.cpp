@@ -37,10 +37,10 @@ void CEngineThread::run()
 		//usleep(ulong(sleepTime * 10));
 
 		dtTimer.Stop();
-		gEditorEngine()->SetDeltaTime(dtTimer.GetSeconds());
+		gEditorEngine->SetDeltaTime(dtTimer.GetSeconds());
 	}
 
-	gEditorEngine()->OnExit();
+	gEditorEngine->OnExit();
 }
 
 void CEngineThread::Pause()

@@ -88,10 +88,18 @@ void CCollapsableWidget::SetCollapsed(bool b)
 
 void CCollapsableWidget::SetHeaderType(EHeaderType type)
 {
-	if (type == ROOT_HEADER)
+	switch (type)
+	{
+	case ROOT_HEADER:
 		header->setProperty("type", QVariant("header"));
-	else
+		break;
+	case NESTED_HEADER:
 		header->setProperty("type", QVariant("header2"));
+		break;
+	case TREE_HEADER:
+		header->setProperty("type", QVariant("clear"));
+		break;
+	}
 }
 
 void CCollapsableWidget::SetText(const QString& text)

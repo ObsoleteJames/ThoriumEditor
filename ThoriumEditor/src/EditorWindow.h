@@ -5,6 +5,7 @@
 #include "DockManager.h"
 #include "Gizmo.h"
 #include "Windows/ToolsWindow.h"
+#include "EditorConfig.h"
 
 class CEntity;
 class QMenuBar;
@@ -22,8 +23,10 @@ class CContentBrowserWidget;
 class COutlinerWindow;
 class QUndoStack;
 class CPropertiesWidget;
+class QTabBar;
 
 extern EDITOR_API CEditorWindow* gEditorWindow;
+extern EDITOR_API CEditorVar evEditorTheme;
 
 class EDITOR_API CEditorWindow : public CToolsWindow
 {
@@ -57,6 +60,10 @@ public:
 	static int ExecSaveMessageBox();
 	static void LoadStyleSheet();
 
+	static inline FString CurTheme() { return evEditorTheme.GetValue().ToString(); }
+	static void SetTheme(const FString& themeName);
+	static const TArray<FString>& GetAvailableThemes();
+
 signals:
 	void onGizmoModeChanged();
 	void onToolChanged();
@@ -74,6 +81,10 @@ protected:
 	void closeEvent(QCloseEvent* event) override;
 
 	void SetupMenuBar();
+
+	void ScanAvailableThemes();
+
+	static void UnloadCurrentTheme();
 
 public:
 	// Windows

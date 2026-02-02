@@ -9,8 +9,9 @@
 #include <QDoubleSpinBox>
 #include <QBoxLayout>
 #include <QVariant>
+#include <QUndoCommand>
 
-CArrayProperty::CArrayProperty(void* ptr, const FProperty* property, QWidget* parent) : IBasePropertyEditor(parent)
+CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) : IBasePropertyEditor(parent), property(p)
 {
 	setLayout(new QVBoxLayout());
 	layout()->setContentsMargins(0, 0, 0, 0);
@@ -39,8 +40,39 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* property, QWidget* pa
 
 	connect(btnAdd, &QPushButton::clicked, this, [=]() { 
 		gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-			helper->AddEmpty(obj); 
-			emit(OnValueChanged()); 
+			helper->AddEmpty(obj);
+
+			class Undo : public QUndoCommand
+			{
+			public:
+				Undo(const QString& name, void* obj, const FProperty* prop, int arrSize) : QUndoCommand(name)
+				{
+					index = arrSize - 1;
+					property = prop;
+					this->obj = obj;
+				}
+
+				void undo() final
+				{
+					auto* helper = (FArrayHelper*)property->typeHelper;
+					helper->Erase(obj, index);
+				}
+
+				void redo() final
+				{
+					auto* helper = (FArrayHelper*)property->typeHelper;
+					helper->AddEmpty(obj);
+					index = helper->Size(obj) - 1;
+				}
+
+			private:
+				int index;
+				const FProperty* property;
+				void* obj;
+			};
+			curUndoCmd = new Undo((property->name + " Add Item").c_str(), obj, property, helper->Size(obj));
+
+			emit(OnValueChanged());
 			UpdateList();
 		});
 	});
@@ -64,6 +96,8 @@ void CArrayProperty::UpdateList()
 
 	SizeType size = helper->Size(obj);
 	SizeType data = (SizeType)helper->Data(obj);
+
+	// TODO: fix this, crashes or freezes when updating list.
 
 	for (SizeType i = 0; i < size; i++)
 	{
@@ -97,9 +131,53 @@ void CArrayProperty::UpdateList()
 			connect(removeBtn, &QPushButton::clicked, this, [=]() { 
 				gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
 					helper->Erase(obj, i);
+
+					class Undo : public QUndoCommand
+					{
+					public:
+						Undo(const QString& name, void* obj, const FProperty* prop, int arrSize) : QUndoCommand(name)
+						{
+							index = arrSize - 1;
+							property = prop;
+							this->obj = obj;
+
+							auto* helper = (FArrayHelper*)property->typeHelper;
+							data = malloc(helper->objSize);
+							memcpy(data, (void*)((SizeType)helper->Data(obj) + index * helper->objSize), helper->objSize);
+						}
+						virtual ~Undo() { free(data); }
+
+						void undo() final
+						{
+							auto* helper = (FArrayHelper*)property->typeHelper;
+							helper->AddEmpty(obj);
+							index = helper->Size(obj) - 1;
+							memcpy((void*)((SizeType)helper->Data(obj) + index * helper->objSize), data, helper->objSize);
+						}
+
+						void redo() final
+						{
+							auto* helper = (FArrayHelper*)property->typeHelper;
+							helper->Erase(obj, index);
+						}
+
+					private:
+						int index;
+						const FProperty* property;
+						void* obj;
+						void* data;
+					};
+					curUndoCmd = new Undo((property->name + " Add Item").c_str(), obj, property, helper->Size(obj));
+
 					emit(OnValueChanged());
 					UpdateList();
 				});
+			});
+			connect(editor, &IBasePropertyEditor::OnValueChanged, this, [=]() {
+				if (auto* cmd = editor->ProvideUndoCmd(); cmd)
+					curUndoCmd = cmd;
+
+				emit this->OnValueChanged();
 			});
 		}
 	}

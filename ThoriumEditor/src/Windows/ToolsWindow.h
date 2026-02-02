@@ -94,6 +94,8 @@ protected:
 	virtual void UserSaveState(QSettings& out) {}
 	virtual void UserRestoreState(QSettings& in) {}
 
+	void closeEvent(QCloseEvent* event) override;
+
 private:
 	static TMap<SizeType, CToolsWindow*>& GetAll();
 

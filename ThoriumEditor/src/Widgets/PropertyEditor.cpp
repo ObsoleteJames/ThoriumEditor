@@ -12,6 +12,7 @@
 #include "PropertyEditors/ClassPtrProperty.h"
 #include "PropertyEditors/VectorProperty.h"
 #include "PropertyEditors/QuatProperty.h"
+#include "EditorWindow.h"
 
 #include "Game/Components/SceneComponent.h"
 #include "Game/Entity.h"
@@ -21,6 +22,14 @@
 #include <QLabel>
 #include <QScrollArea>
 #include <QBoxLayout>
+#include <QUndoStack>
+
+QUndoCommand* IBasePropertyEditor::ProvideUndoCmd()
+{
+	auto* cmd = curUndoCmd;
+	curUndoCmd = nullptr;
+	return cmd;
+}
 
 CPropertyEditorWidget::CPropertyEditorWidget(QWidget* parent /*= nullptr*/) : QWidget(parent)
 {
@@ -40,6 +49,8 @@ CPropertyEditorWidget::CPropertyEditorWidget(QWidget* parent /*= nullptr*/) : QW
 	//scrollLayout->setSpacing(0);
 
 	layout->addWidget(scrollArea);
+
+	connect(gEditorWindow->sceneUndoStack, &QUndoStack::indexChanged, this, &CPropertyEditorWidget::Update);
 }
 
 void CPropertyEditorWidget::SetObject(CObject* obj)
@@ -254,6 +265,9 @@ void CPropertyEditorWidget::AddProperty(IBasePropertyEditor* editor, CObject* ob
 					});
 				}
 			}
+
+			if (auto* cmd = editor->ProvideUndoCmd(); cmd)
+				gEditorWindow->sceneUndoStack->push(cmd);
 		});
 	}
 }

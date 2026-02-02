@@ -8,6 +8,7 @@
 class QScrollArea;
 class QVBoxLayout;
 class CCollapsableWidget;
+class QUndoCommand;
 
 class IBasePropertyEditor : public QWidget
 {
@@ -19,8 +20,14 @@ public:
 	virtual QWidget* GetWidget() { return this; }
 	virtual void Update() = 0;
 
+	// this will be called after OnValueChanged has been emitted.
+	virtual QUndoCommand* ProvideUndoCmd();
+
 Q_SIGNALS:
 	void OnValueChanged();
+
+protected:
+	QUndoCommand* curUndoCmd = nullptr;
 
 };
 

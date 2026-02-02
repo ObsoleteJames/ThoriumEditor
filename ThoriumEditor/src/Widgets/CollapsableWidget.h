@@ -14,7 +14,8 @@ public:
 	enum EHeaderType
 	{
 		ROOT_HEADER,
-		NESTED_HEADER
+		NESTED_HEADER,
+		TREE_HEADER // looks like a tree item.
 	};
 
 public:

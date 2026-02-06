@@ -232,7 +232,8 @@ void CToolsWindow::RestoreState()
 	{
 		settings.beginGroup(QString("dock_") + dock->objectName());
 
-		dock->restoreGeometry(settings.value("dockgeo").toByteArray());
+		if (settings.contains("dockgeo"))
+			dock->restoreGeometry(settings.value("dockgeo").toByteArray());
 
 		settings.endGroup();
 	}

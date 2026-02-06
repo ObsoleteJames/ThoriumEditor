@@ -24,7 +24,7 @@ void CModellingTool::Init()
 	QLabel* txt = new QLabel("Hello!\n Bitch!!!", toolWindow);
 	layout->addWidget(txt);
 
-	gEditorWindow->getDockManager()->addDockWidget(ads::LeftDockWidgetArea, toolWindow);
+	gEditorWindow->sceneDockManager->addDockWidget(ads::LeftDockWidgetArea, toolWindow);
 	toolWindow->toggleView(false);
 }
 

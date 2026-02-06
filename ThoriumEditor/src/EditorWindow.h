@@ -24,6 +24,7 @@ class COutlinerWindow;
 class QUndoStack;
 class CPropertiesWidget;
 class QTabBar;
+class CMainDockWidget;
 
 extern EDITOR_API CEditorWindow* gEditorWindow;
 extern EDITOR_API CEditorVar evEditorTheme;
@@ -86,8 +87,15 @@ protected:
 
 	static void UnloadCurrentTheme();
 
+	void UserSaveState(QSettings& out) override;
+	void UserRestoreState(QSettings& in) override;
+
 public:
+	QMenuBar* sceneMenuBar;
+	ads::CDockManager* sceneDockManager;
+
 	// Windows
+	CMainDockWidget* sceneWnd; // the main dock widget for the scene, contains the menu and toolbars
 	CConsoleWidget* consoleWindow;
 	ads::CDockWidget* contentBrowser;
 	CContentBrowserWidget* contentBrowserWidget;

@@ -30,15 +30,38 @@ LONG WINAPI Win32ExceptionHandler(_EXCEPTION_POINTERS* exceptionInfo)
 	oss << std::put_time(&tm, "%d-%m-%y %H-%M-%S");
 	std::string timeTxt = oss.str();
 
+	std::string dumpFileName = "crash " + timeTxt + ".dmp";
+
 	_MINIDUMP_EXCEPTION_INFORMATION ExInfo;
 	ExInfo.ThreadId = ::GetCurrentThreadId();
 	ExInfo.ExceptionPointers = exceptionInfo;
 	ExInfo.ClientPointers = FALSE;
 
-	HANDLE hFile = CreateFileA(("crash " + timeTxt + ".dmp").c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	// Generate detailed crash information
+	std::ostringstream crashInfo;
+	crashInfo << "Exception Code: 0x" << std::hex << exceptionInfo->ExceptionRecord->ExceptionCode << std::dec << "\n";
+	crashInfo << "Exception Address: 0x" << std::hex << (uintptr_t)exceptionInfo->ExceptionRecord->ExceptionAddress << std::dec << "\n";
+	crashInfo << "Timestamp: " << timeTxt << "\n\n";
+	crashInfo << "Would you like to save the crash dump file for debugging?\n\n";
 
-	pDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &ExInfo, NULL, NULL);
-	CloseHandle(hFile);
+	int result = MessageBoxA(nullptr, crashInfo.str().c_str(), "Thorium Editor - Fatal Error", MB_YESNO | MB_ICONERROR | MB_TASKMODAL);
+
+	if (result == IDYES)
+	{
+		HANDLE hFile = CreateFileA(dumpFileName.c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile != INVALID_HANDLE_VALUE)
+		{
+			pDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &ExInfo, NULL, NULL);
+			CloseHandle(hFile);
+		}
+		else
+		{
+			std::ostringstream errorMsg;
+			errorMsg << "Failed to save crash dump file:\n" << dumpFileName;
+			MessageBoxA(nullptr, errorMsg.str().c_str(), "Save Failed", MB_OK | MB_ICONWARNING | MB_TASKMODAL);
+		}
+	}
+
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif

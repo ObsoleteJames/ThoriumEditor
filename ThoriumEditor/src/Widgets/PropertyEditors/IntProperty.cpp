@@ -6,11 +6,13 @@
 #include <QSpinBox>
 #include <QBoxLayout>
 #include <QVariant>
+#include <QUndoCommand>
 
 CIntProperty::CIntProperty(int* v, const FProperty* property, QWidget* parent) : IBasePropertyEditor(parent), value(v)
 {
 	byteSize = property->size;
 	setProperty("type", QVariant(1));
+	undoName = property->name;
 	
 	setLayout(new QHBoxLayout());
 	
@@ -45,6 +47,7 @@ CIntProperty::CIntProperty(const FString& name, int* v, int min /*= 0*/, int max
 {
 	setProperty("type", QVariant(1));
 	setLayout(new QHBoxLayout());
+	undoName = name;
 
 	editor = new QSpinBox(this);
 
@@ -98,6 +101,93 @@ void CIntProperty::Update()
 
 void CIntProperty::onValueChanged(int v)
 {
+	class Undo : public QUndoCommand
+	{
+	public:
+		Undo(const QString& name, int* ptr, uint8 byteSize, int64 oldv, int64 newv)
+			: QUndoCommand(name), ptr(ptr), byteSize(byteSize), oldValue(oldv), newValue(newv)
+		{
+		}
+
+		int id() const override
+		{
+			return 1003;
+		}
+
+		bool mergeWith(const QUndoCommand* other) override
+		{
+			auto* cmd = static_cast<const Undo*>(other);
+			if (!cmd || cmd->ptr != ptr || cmd->byteSize != byteSize)
+				return false;
+			newValue = cmd->newValue;
+			return true;
+		}
+
+		void undo() override
+		{
+			switch (byteSize)
+			{
+			case 1:
+				*(int8*)ptr = (int8)oldValue;
+				break;
+			case 2:
+				*(int16*)ptr = (int16)oldValue;
+				break;
+			case 4:
+				*(int32*)ptr = (int32)oldValue;
+				break;
+			case 8:
+				*(int64*)ptr = (int64)oldValue;
+				break;
+			}
+		}
+
+		void redo() override
+		{
+			switch (byteSize)
+			{
+			case 1:
+				*(int8*)ptr = (int8)newValue;
+				break;
+			case 2:
+				*(int16*)ptr = (int16)newValue;
+				break;
+			case 4:
+				*(int32*)ptr = (int32)newValue;
+				break;
+			case 8:
+				*(int64*)ptr = (int64)newValue;
+				break;
+			}
+		}
+
+		int* ptr;
+		uint8 byteSize;
+		int64 oldValue;
+		int64 newValue;
+	};
+
+	int64 oldValue = 0;
+	switch (byteSize)
+	{
+	case 1:
+		oldValue = *(int8*)value;
+		break;
+	case 2:
+		oldValue = *(int16*)value;
+		break;
+	case 4:
+		oldValue = *(int32*)value;
+		break;
+	case 8:
+		oldValue = *(int64*)value;
+		break;
+	}
+	if (oldValue == v)
+		return;
+
+	curUndoCmd = new Undo((undoName + " Value Edited").c_str(), value, byteSize, oldValue, v);
+
 	switch (byteSize)
 	{
 	case 1:
@@ -120,6 +210,7 @@ CUIntProperty::CUIntProperty(uint* v, const FProperty* property, QWidget* parent
 {
 	byteSize = property->size;
 	setProperty("type", QVariant(2));
+	undoName = property->name;
 
 	setLayout(new QHBoxLayout());
 
@@ -152,6 +243,7 @@ CUIntProperty::CUIntProperty(const FString& name, uint* v, uint min /*= 0*/, uin
 {
 	setProperty("type", QVariant(2));
 	setLayout(new QHBoxLayout());
+	undoName = name;
 
 	editor = new QSpinBox(this);
 
@@ -202,6 +294,93 @@ void CUIntProperty::Update()
 
 void CUIntProperty::onValueChanged(int v)
 {
+	class Undo : public QUndoCommand
+	{
+	public:
+		Undo(const QString& name, uint* ptr, uint8 byteSize, uint64 oldv, uint64 newv)
+			: QUndoCommand(name), ptr(ptr), byteSize(byteSize), oldValue(oldv), newValue(newv)
+		{
+		}
+
+		int id() const override
+		{
+			return 1004;
+		}
+
+		bool mergeWith(const QUndoCommand* other) override
+		{
+			auto* cmd = static_cast<const Undo*>(other);
+			if (!cmd || cmd->ptr != ptr || cmd->byteSize != byteSize)
+				return false;
+			newValue = cmd->newValue;
+			return true;
+		}
+
+		void undo() override
+		{
+			switch (byteSize)
+			{
+			case 1:
+				*(uint8*)ptr = (uint8)oldValue;
+				break;
+			case 2:
+				*(uint16*)ptr = (uint16)oldValue;
+				break;
+			case 4:
+				*ptr = (uint32)oldValue;
+				break;
+			case 8:
+				*(SizeType*)ptr = (SizeType)oldValue;
+				break;
+			}
+		}
+
+		void redo() override
+		{
+			switch (byteSize)
+			{
+			case 1:
+				*(uint8*)ptr = (uint8)newValue;
+				break;
+			case 2:
+				*(uint16*)ptr = (uint16)newValue;
+				break;
+			case 4:
+				*ptr = (uint32)newValue;
+				break;
+			case 8:
+				*(SizeType*)ptr = (SizeType)newValue;
+				break;
+			}
+		}
+
+		uint* ptr;
+		uint8 byteSize;
+		uint64 oldValue;
+		uint64 newValue;
+	};
+
+	uint64 oldValue = 0;
+	switch (byteSize)
+	{
+	case 1:
+		oldValue = *(uint8*)value;
+		break;
+	case 2:
+		oldValue = *(uint16*)value;
+		break;
+	case 4:
+		oldValue = *value;
+		break;
+	case 8:
+		oldValue = *(SizeType*)value;
+		break;
+	}
+	if (oldValue == (uint64)v)
+		return;
+
+	curUndoCmd = new Undo((undoName + " Value Edited").c_str(), value, byteSize, oldValue, (uint64)v);
+
 	switch (byteSize)
 	{
 	case 1:

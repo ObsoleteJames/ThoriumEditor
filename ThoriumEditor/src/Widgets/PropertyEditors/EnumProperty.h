@@ -30,5 +30,6 @@ private:
 	QComboBox* editor;
 	uint8 byteSize;
 	void* value;
+	FString undoName;
 
 };

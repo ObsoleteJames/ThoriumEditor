@@ -7,11 +7,13 @@
 #include <QLineEdit>
 #include <QBoxLayout>
 #include <QLabel>
+#include <QUndoCommand>
 
 CStringProperty::CStringProperty(void* ptr, const FProperty* property, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent)
 {
 	setProperty("type", QVariant(1));
 	setLayout(new QHBoxLayout());
+	undoName = property->name;
 
 	fstring = (FString*)ptr;
 
@@ -30,6 +32,7 @@ CStringProperty::CStringProperty(const FString& name, FString* ptr, QWidget* par
 {
 	setProperty("type", QVariant(1));
 	setLayout(new QHBoxLayout());
+	undoName = name;
 
 	editor = new QLineEdit(this);
 
@@ -52,6 +55,47 @@ void CStringProperty::Update()
 
 void CStringProperty::onEdit(const QString& txt)
 {
-	*fstring = txt.toStdString();
+	class Undo : public QUndoCommand
+	{
+	public:
+		Undo(const QString& name, FString* ptr, const FString& oldv, const FString& newv)
+			: QUndoCommand(name), ptr(ptr), oldValue(oldv), newValue(newv)
+		{
+		}
+
+		int id() const override
+		{
+			return 1005;
+		}
+
+		bool mergeWith(const QUndoCommand* other) override
+		{
+			auto* cmd = static_cast<const Undo*>(other);
+			if (!cmd || cmd->ptr != ptr)
+				return false;
+			newValue = cmd->newValue;
+			return true;
+		}
+
+		void undo() override
+		{
+			*ptr = oldValue;
+		}
+
+		void redo() override
+		{
+			*ptr = newValue;
+		}
+
+		FString* ptr;
+		FString oldValue;
+		FString newValue;
+	};
+
+	FString newValue = txt.toStdString();
+	if (*fstring == newValue)
+		return;
+	curUndoCmd = new Undo((undoName + " Value Edited").c_str(), fstring, *fstring, newValue);
+	*fstring = newValue;
 	emit(OnValueChanged());
 }

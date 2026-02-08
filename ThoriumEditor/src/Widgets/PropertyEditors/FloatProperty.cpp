@@ -6,11 +6,13 @@
 #include <QDoubleSpinBox>
 #include <QBoxLayout>
 #include <QVariant>
+#include <QUndoCommand>
 
 CFloatProperty::CFloatProperty(void* value, const FProperty* property, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent)
 {
 	setProperty("type", QVariant(1));
 	setLayout(new QHBoxLayout());
+	undoName = property->name;
 
 	editor = new QDoubleSpinBox(this);
 
@@ -42,6 +44,7 @@ CFloatProperty::CFloatProperty(const FString& name, float* value, QWidget* paren
 {
 	setProperty("type", QVariant(1));
 	setLayout(new QHBoxLayout());
+	undoName = name;
 
 	editor = new QDoubleSpinBox(this);
 
@@ -62,6 +65,7 @@ CFloatProperty::CFloatProperty(const FString& name, double* value, QWidget* pare
 {
 	setProperty("type", QVariant(1));
 	setLayout(new QHBoxLayout());
+	undoName = name;
 
 	editor = new QDoubleSpinBox(this);
 
@@ -94,9 +98,71 @@ void CFloatProperty::Update()
 
 void CFloatProperty::valueChanged(double v)
 {
+	class Undo : public QUndoCommand
+	{
+	public:
+		Undo(const QString& name, float* fptr, double* dptr, bool isDouble, double oldv, double newv)
+			: QUndoCommand(name), fptr(fptr), dptr(dptr), isDouble(isDouble), oldValue(oldv), newValue(newv)
+		{
+		}
+
+		int id() const override
+		{
+			return 1002;
+		}
+
+		bool mergeWith(const QUndoCommand* other) override
+		{
+			auto* cmd = static_cast<const Undo*>(other);
+			if (!cmd)
+				return false;
+			if (isDouble != cmd->isDouble)
+				return false;
+			if (isDouble && dptr != cmd->dptr)
+				return false;
+			if (!isDouble && fptr != cmd->fptr)
+				return false;
+			newValue = cmd->newValue;
+			return true;
+		}
+
+		void undo() override
+		{
+			if (isDouble)
+				*dptr = oldValue;
+			else
+				*fptr = (float)oldValue;
+		}
+
+		void redo() override
+		{
+			if (isDouble)
+				*dptr = newValue;
+			else
+				*fptr = (float)newValue;
+		}
+
+		float* fptr;
+		double* dptr;
+		bool isDouble;
+		double oldValue;
+		double newValue;
+	};
+
+	const QString commandName = (undoName + " Value Edited").c_str();
 	if (bDouble)
+	{
+		if (*vDouble == v)
+			return;
+		curUndoCmd = new Undo(commandName, nullptr, vDouble, true, *vDouble, v);
 		*vDouble = v;
+	}
 	else
+	{
+		if (*vFloat == (float)v)
+			return;
+		curUndoCmd = new Undo(commandName, vFloat, nullptr, false, *vFloat, v);
 		*vFloat = (float)v;
+	}
 	emit(OnValueChanged());
 }

@@ -52,6 +52,17 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 					this->obj = obj;
 				}
 
+				int id() const override
+				{
+					return 1011;
+				}
+
+				bool mergeWith(const QUndoCommand* other) override
+				{
+					(void)other;
+					return false;
+				}
+
 				void undo() final
 				{
 					auto* helper = (FArrayHelper*)property->typeHelper;
@@ -144,6 +155,17 @@ void CArrayProperty::UpdateList()
 							auto* helper = (FArrayHelper*)property->typeHelper;
 							data = malloc(helper->objSize);
 							memcpy(data, (void*)((SizeType)helper->Data(obj) + index * helper->objSize), helper->objSize);
+						}
+
+						int id() const override
+						{
+							return 1012;
+						}
+
+						bool mergeWith(const QUndoCommand* other) override
+						{
+							(void)other;
+							return false;
 						}
 						virtual ~Undo() { free(data); }
 

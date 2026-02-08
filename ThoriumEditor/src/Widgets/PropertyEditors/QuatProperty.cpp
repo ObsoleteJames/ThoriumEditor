@@ -4,11 +4,13 @@
 #include <QDoubleSpinBox>
 #include <QBoxLayout>
 #include <QVariant>
+#include <QUndoCommand>
 
 CQuatProperty::CQuatProperty(FQuaternion* v, const FString& name, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent), value(v)
 {
 	setProperty("type", QVariant(1));
 	auto* layout = new QHBoxLayout(this);
+	undoName = name;
 
 	QLabel* label = new QLabel(name.c_str(), this);
 
@@ -62,6 +64,43 @@ void CQuatProperty::Update()
 
 void CQuatProperty::Changed()
 {
+	class Undo : public QUndoCommand
+	{
+	public:
+		Undo(const QString& name, FQuaternion* ptr, const FQuaternion& oldv, const FQuaternion& newv)
+			: QUndoCommand(name), ptr(ptr), oldValue(oldv), newValue(newv)
+		{
+		}
+
+		int id() const override
+		{
+			return 1008;
+		}
+
+		bool mergeWith(const QUndoCommand* other) override
+		{
+			auto* cmd = static_cast<const Undo*>(other);
+			if (!cmd || cmd->ptr != ptr)
+				return false;
+			newValue = cmd->newValue;
+			return true;
+		}
+
+		void undo() override
+		{
+			*ptr = oldValue;
+		}
+
+		void redo() override
+		{
+			*ptr = newValue;
+		}
+
+		FQuaternion* ptr;
+		FQuaternion oldValue;
+		FQuaternion newValue;
+	};
+
 	FVector euler;
 
 	euler.x = editors[0]->value();
@@ -69,6 +108,9 @@ void CQuatProperty::Changed()
 	euler.z = editors[2]->value();
 
 	FQuaternion q = FQuaternion::EulerAngles(euler.Radians());
+	if (*value == q)
+		return;
+	curUndoCmd = new Undo((undoName + " Value Edited").c_str(), value, *value, q);
 	cache = q;
 	*value = q;
 	emit(OnValueChanged());

@@ -24,5 +24,6 @@ private:
 private:
 	QLineEdit* editor;
 	FString* fstring;
+	FString undoName;
 
 };

@@ -25,8 +25,22 @@ CBoolProperty::CBoolProperty(bool* v, const FProperty* property, QWidget* parent
 		class Undo : public QUndoCommand
 		{
 		public:
-			Undo(const QString& name, CBoolProperty* edit, bool* ptr, bool oldv, bool newv) : QUndoCommand(name), ptr(ptr), oldValue(oldv), newValue(newv)
+			Undo(const QString& name, bool* ptr, bool oldv, bool newv) : QUndoCommand(name), ptr(ptr), oldValue(oldv), newValue(newv)
 			{
+			}
+
+			int id() const override
+			{
+				return 1001;
+			}
+
+			bool mergeWith(const QUndoCommand* other) override
+			{
+				auto* cmd = static_cast<const Undo*>(other);
+				if (!cmd || cmd->ptr != ptr)
+					return false;
+				newValue = cmd->newValue;
+				return true;
 			}
 
 			void undo() override
@@ -44,8 +58,11 @@ CBoolProperty::CBoolProperty(bool* v, const FProperty* property, QWidget* parent
 			bool newValue;
 		};
 
-		curUndoCmd = new Undo((property->name + " Value Edited").c_str(), this, value, *value, b);
-		*value = b;
+		bool newValue = b != 0;
+		if (*value == newValue)
+			return;
+		curUndoCmd = new Undo((property->name + " Value Edited").c_str(), value, *value, newValue);
+		*value = newValue;
 		emit(OnValueChanged());
 	});
 }
@@ -63,7 +80,51 @@ CBoolProperty::CBoolProperty(const FString& name, bool* v, QWidget* parent /*= n
 	layout()->addWidget(editor);
 
 	Update();
-	connect(editor, &QCheckBox::stateChanged, this, [=](int b) { *value = b; emit(OnValueChanged()); });
+	const QString commandName = (name + " Value Edited").c_str();
+	connect(editor, &QCheckBox::stateChanged, this, [=](int b) {
+		class Undo : public QUndoCommand
+		{
+		public:
+			Undo(const QString& name, bool* ptr, bool oldv, bool newv) : QUndoCommand(name), ptr(ptr), oldValue(oldv), newValue(newv)
+			{
+			}
+
+			int id() const override
+			{
+				return 1001;
+			}
+
+			bool mergeWith(const QUndoCommand* other) override
+			{
+				auto* cmd = static_cast<const Undo*>(other);
+				if (!cmd || cmd->ptr != ptr)
+					return false;
+				newValue = cmd->newValue;
+				return true;
+			}
+
+			void undo() override
+			{
+				*ptr = oldValue;
+			}
+
+			void redo() override
+			{
+				*ptr = newValue;
+			}
+
+			bool* ptr;
+			bool oldValue;
+			bool newValue;
+		};
+
+		bool newValue = b != 0;
+		if (*value == newValue)
+			return;
+		curUndoCmd = new Undo(commandName, value, *value, newValue);
+		*value = newValue;
+		emit(OnValueChanged());
+	});
 }
 
 void CBoolProperty::Update()

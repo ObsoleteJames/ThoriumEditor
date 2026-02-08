@@ -26,6 +26,7 @@ private Q_SLOTS:
 private:
 	QDoubleSpinBox* editor;
 	bool bDouble;
+	FString undoName;
 	union
 	{
 		float* vFloat;

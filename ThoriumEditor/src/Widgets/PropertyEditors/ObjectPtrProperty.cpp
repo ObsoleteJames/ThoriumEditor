@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QDragEnterEvent>
 #include <QComboBox>
+#include <QUndoCommand>
 
 CObjectPtrProperty::CObjectPtrProperty(void* v, const FProperty* property, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent), value((TObjectPtr<CObject>*)v)
 {
@@ -34,6 +35,7 @@ void CObjectPtrProperty::Init(const QString& name)
 {
 	setProperty("type", QVariant(1));
 	auto* layout = new QHBoxLayout(this);
+	undoName = name + " Value Edited";
 
 	setAcceptDrops(true);
 
@@ -74,7 +76,12 @@ void CObjectPtrProperty::Init(const QString& name)
 				FFile* f = dialog.File();
 				gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
 					TObjectPtr<CAsset> obj = CAssetManager::GetAsset((FAssetClass*)_class, f->Path());
-					*value = &*obj;
+					TObjectPtr<CObject> oldValue = *value;
+					TObjectPtr<CObject> newValue = &*obj;
+					if (oldValue == newValue)
+						return;
+					curUndoCmd = makeUndo(oldValue, newValue);
+					*value = newValue;
 					edit->SetObject(obj);
 					emit(OnValueChanged());
 				});
@@ -89,7 +96,12 @@ void CObjectPtrProperty::Init(const QString& name)
 			//}
 			//CAsset* obj = CastChecked<CAsset>(edit->GetObject());
 			gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-				*value = &*CAssetManager::GetAsset((FAssetClass*)_class, edit->GetObjectId());
+				TObjectPtr<CObject> oldValue = *value;
+				TObjectPtr<CObject> newValue = &*CAssetManager::GetAsset((FAssetClass*)_class, edit->GetObjectId());
+				if (oldValue == newValue)
+					return;
+				curUndoCmd = makeUndo(oldValue, newValue);
+				*value = newValue;
 				emit(OnValueChanged());
 			});
 		});
@@ -105,13 +117,60 @@ void CObjectPtrProperty::Init(const QString& name)
 		connect(edit, &CObjectSelectorWidget::ObjectChanged, this, [=]() {
 			//CAsset* obj = CastChecked<CAsset>(edit->GetObject());
 			gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-				*value = CObjectManager::FindObject(edit->GetObjectId());
+				TObjectPtr<CObject> oldValue = *value;
+				TObjectPtr<CObject> newValue = CObjectManager::FindObject(edit->GetObjectId());
+				if (oldValue == newValue)
+					return;
+				curUndoCmd = makeUndo(oldValue, newValue);
+				*value = newValue;
 				emit(OnValueChanged());
 			});
 		});
 	}
 
 	Update();
+}
+
+QUndoCommand* CObjectPtrProperty::makeUndo(const TObjectPtr<CObject>& oldValue, const TObjectPtr<CObject>& newValue)
+{
+	class Undo : public QUndoCommand
+	{
+	public:
+		Undo(const QString& name, TObjectPtr<CObject>* ptr, const TObjectPtr<CObject>& oldv, const TObjectPtr<CObject>& newv)
+			: QUndoCommand(name), ptr(ptr), oldValue(oldv), newValue(newv)
+		{
+		}
+
+		int id() const override
+		{
+			return 1009;
+		}
+
+		bool mergeWith(const QUndoCommand* other) override
+		{
+			auto* cmd = static_cast<const Undo*>(other);
+			if (!cmd || cmd->ptr != ptr)
+				return false;
+			newValue = cmd->newValue;
+			return true;
+		}
+
+		void undo() override
+		{
+			*ptr = oldValue;
+		}
+
+		void redo() override
+		{
+			*ptr = newValue;
+		}
+
+		TObjectPtr<CObject>* ptr;
+		TObjectPtr<CObject> oldValue;
+		TObjectPtr<CObject> newValue;
+	};
+
+	return new Undo(undoName, value, oldValue, newValue);
 }
 
 void CObjectPtrProperty::dragEnterEvent(QDragEnterEvent* event)
@@ -153,7 +212,12 @@ void CObjectPtrProperty::dropEvent(QDropEvent* event)
 			event->acceptProposedAction();
 			gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
 				TObjectPtr<CAsset> obj = CAssetManager::GetAsset((FAssetClass*)_class, file->Path());
-				*value = &*obj;
+				TObjectPtr<CObject> oldValue = *value;
+				TObjectPtr<CObject> newValue = &*obj;
+				if (oldValue == newValue)
+					return;
+				curUndoCmd = makeUndo(oldValue, newValue);
+				*value = newValue;
 				edit->SetObject(obj);
 				emit(OnValueChanged());
 			});

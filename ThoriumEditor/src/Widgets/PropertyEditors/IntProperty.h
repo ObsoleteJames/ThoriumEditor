@@ -26,6 +26,7 @@ private:
 
 	uint8 byteSize = 4;
 	int* value;
+	FString undoName;
 
 };
 
@@ -49,5 +50,6 @@ private:
 
 	uint8 byteSize = 4;
 	uint* value;
+	FString undoName;
 
 };

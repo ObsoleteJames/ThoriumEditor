@@ -26,11 +26,15 @@ private:
 	void dragEnterEvent(QDragEnterEvent* event) override;
 	void dropEvent(QDropEvent* event) override;
 
+	QUndoCommand* makeUndo(const TObjectPtr<CObject>& oldValue, const TObjectPtr<CObject>& newValue);
+
 private:
 	CObjectSelectorWidget* edit;
 	TObjectPtr<CObject>* value;
 	bool bIsAsset;
 	FClass* _class;
 	QWidget* widget;
+
+	QString undoName;
 
 };

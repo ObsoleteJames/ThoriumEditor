@@ -9,6 +9,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QComboBox>
+#include <QUndoCommand>
 
 CClassPtrProperty::CClassPtrProperty(void* v, const FProperty* property, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent), value((FClass**)v)
 {
@@ -36,6 +37,7 @@ void CClassPtrProperty::Init(const QString& name)
 {
 	setProperty("type", QVariant(1));
 	auto* layout = new QHBoxLayout(this);
+	const QString commandName = name + " Value Edited";
 
 	QLabel* label = new QLabel(name, this);
 
@@ -50,8 +52,49 @@ void CClassPtrProperty::Init(const QString& name)
 
 	connect(edit, &CClassSelectorWidget::ClassChanged, this, [=]() {
 		gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-			FClass* c = edit->GetClass();
-			*value = c;
+			class Undo : public QUndoCommand
+			{
+			public:
+				Undo(const QString& name, FClass** ptr, FClass* oldv, FClass* newv)
+					: QUndoCommand(name), ptr(ptr), oldValue(oldv), newValue(newv)
+				{
+				}
+
+				int id() const override
+				{
+					return 1010;
+				}
+
+				bool mergeWith(const QUndoCommand* other) override
+				{
+					auto* cmd = static_cast<const Undo*>(other);
+					if (!cmd || cmd->ptr != ptr)
+						return false;
+					newValue = cmd->newValue;
+					return true;
+				}
+
+				void undo() override
+				{
+					*ptr = oldValue;
+				}
+
+				void redo() override
+				{
+					*ptr = newValue;
+				}
+
+				FClass** ptr;
+				FClass* oldValue;
+				FClass* newValue;
+			};
+
+			FClass* oldValue = *value;
+			FClass* newValue = edit->GetClass();
+			if (oldValue == newValue)
+				return;
+			curUndoCmd = new Undo(commandName, value, oldValue, newValue);
+			*value = newValue;
 			emit(OnValueChanged());
 		});
 	});

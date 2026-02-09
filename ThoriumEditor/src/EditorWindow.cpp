@@ -109,22 +109,21 @@ void CEditorWindow::SetupUi()
 
 	sceneUndoStack = new QUndoStack(this);
 
-	sceneWnd = new CMainDockWidget("Scene", this);
-	sceneDockManager = new ads::CDockManager(sceneWnd->MainWindow());
-	sceneDockManager->setStyleSheet("");
-	sceneMenuBar = sceneWnd->menuBar();
-	sceneWnd->setFeatures(ads::CDockWidget::DockWidgetMovable | ads::CDockWidget::DockWidgetFocusable);
+	//sceneWnd = new CMainDockWidget("Scene", this);
+	//sceneDockManager = new ads::CDockManager(sceneWnd->MainWindow());
+	//sceneDockManager->setStyleSheet("");
+	//sceneMenuBar = sceneWnd->menuBar();
+	//sceneWnd->setFeatures(ads::CDockWidget::DockWidgetMovable | ads::CDockWidget::DockWidgetFocusable);
 
-	dockmanager->addDockWidget(ads::CenterDockWidgetArea, sceneWnd);
-	sceneWnd->dockAreaWidget()->titleBar()->insertWidget(0, new QLabel("Thorium Editor"));
-
-	menuFile = new QMenu("File", sceneMenuBar); sceneMenuBar->addMenu(menuFile);
-	menuEdit = new QMenu("Edit", sceneMenuBar); sceneMenuBar->addMenu(menuEdit);
-	menuTools = new QMenu("Tools", sceneMenuBar); sceneMenuBar->addMenu(menuTools);
-	menuCode = new QMenu("Code", sceneMenuBar); sceneMenuBar->addMenu(menuCode);
-	menuView = new QMenu("View", sceneMenuBar); sceneMenuBar->addMenu(menuView);
-	menuDebug = new QMenu("Debug", sceneMenuBar); sceneMenuBar->addMenu(menuDebug);
-	menuHelp = new QMenu("Help", sceneMenuBar); sceneMenuBar->addMenu(menuHelp);
+	//dockmanager->addDockWidget(ads::CenterDockWidgetArea, sceneWnd);
+	
+	menuFile = new QMenu("File", menuBar); menuBar->addMenu(menuFile);
+	menuEdit = new QMenu("Edit", menuBar); menuBar->addMenu(menuEdit);
+	menuTools = new QMenu("Tools", menuBar); menuBar->addMenu(menuTools);
+	menuCode = new QMenu("Code", menuBar); menuBar->addMenu(menuCode);
+	menuView = new QMenu("View", menuBar); menuBar->addMenu(menuView);
+	menuDebug = new QMenu("Debug", menuBar); menuBar->addMenu(menuDebug);
+	menuHelp = new QMenu("Help", menuBar); menuBar->addMenu(menuHelp);
 
 	menuFile->addSection("Scene");
 	menuFile->addAction("New Scene");
@@ -191,7 +190,7 @@ void CEditorWindow::SetupUi()
 		sceneDock = new ads::CDockWidget("Scene Viewport", this);
 		sceneDock->setObjectName("Scene");
 		sceneDock->setWidget(widget);
-		sceneDockManager->addDockWidget(ads::CenterDockWidgetArea, sceneDock);
+		dockmanager->addDockWidget(ads::CenterDockWidgetArea, sceneDock);
 
 		worldViewports[0] = new CViewportWidget(this);
 		worldViewports[0]->SetCamera(gEditorEngine->viewportCams[0]);
@@ -222,7 +221,7 @@ void CEditorWindow::SetupUi()
 
 		gameDock = new ads::CDockWidget("Game", this);
 		gameDock->setWidget(widget);
-		sceneDockManager->addDockWidget(ads::CenterDockWidgetArea, gameDock, sceneDock->dockAreaWidget());
+		dockmanager->addDockWidget(ads::CenterDockWidgetArea, gameDock, sceneDock->dockAreaWidget());
 		sceneDock->dockAreaWidget()->setCurrentDockWidget(sceneDock);
 
 		gameViewport = new CRenderWidget(this);
@@ -230,20 +229,20 @@ void CEditorWindow::SetupUi()
 	}
 
 	consoleWindow = new CConsoleWidget(this);
-	sceneDockManager->addDockWidget(ads::BottomDockWidgetArea, consoleWindow);
+	dockmanager->addDockWidget(ads::BottomDockWidgetArea, consoleWindow);
 
 	contentBrowser = new ads::CDockWidget("Content Browser", this);
 	contentBrowser->setIcon(QIcon(":/icons/wnd_contentbrowser.svg"));
 	contentBrowser->setObjectName("contentbrowser_dockwidget");
 	contentBrowserWidget = new CContentBrowserWidget();
 	contentBrowser->setWidget(contentBrowserWidget);
-	sceneDockManager->addDockWidget(ads::CenterDockWidgetArea, contentBrowser, consoleWindow->dockAreaWidget());
+	dockmanager->addDockWidget(ads::CenterDockWidgetArea, contentBrowser, consoleWindow->dockAreaWidget());
 
 	outliner = new COutlinerWindow(this);
-	sceneDockManager->addDockWidget(ads::RightDockWidgetArea, outliner);
+	dockmanager->addDockWidget(ads::RightDockWidgetArea, outliner);
 
 	propertiesWidget = new CPropertiesWidget(this);
-	sceneDockManager->addDockWidget(ads::BottomDockWidgetArea, propertiesWidget, outliner->dockAreaWidget());
+	dockmanager->addDockWidget(ads::BottomDockWidgetArea, propertiesWidget, outliner->dockAreaWidget());
 
 	{
 		QWidget* widget = new QWidget(this);
@@ -256,7 +255,7 @@ void CEditorWindow::SetupUi()
 
 		historyDock = new ads::CDockWidget("History", this);
 		historyDock->setWidget(widget);
-		sceneDockManager->addDockWidget(ads::CenterDockWidgetArea, historyDock, outliner->dockAreaWidget());
+		dockmanager->addDockWidget(ads::CenterDockWidgetArea, historyDock, outliner->dockAreaWidget());
 
 		QUndoView* view = new QUndoView(sceneUndoStack, this);
 		layout->addWidget(view);
@@ -268,21 +267,21 @@ void CEditorWindow::SetupUi()
 	setStatusBar(statusBar);
 
 	{
-		tbScene = sceneWnd->addToolBar("Scene");
+		tbScene = addToolBar("Scene");
 
 		tbScene->addAction(actSaveScene);
 		tbScene->addAction(actUndo);
 		tbScene->addAction(actRedo);
 	}
 	{
-		tbTool = sceneWnd->addToolBar("Tool");
+		tbTool = addToolBar("Tool");
 
 		comboActiveTool = new QComboBox();
 		tbTool->addWidget(comboActiveTool);
 		comboActiveTool->setMinimumWidth(126);
 	}
 	{
-		tbGizmoMode = sceneWnd->addToolBar("Gizmo Mode");
+		tbGizmoMode = addToolBar("Gizmo Mode");
 
 		actGizmoSelect = tbGizmoMode->addAction(QIcon(":/icons/select-cursor.svg"), "Select");
 		actGizmoSelect->setCheckable(true);
@@ -304,7 +303,7 @@ void CEditorWindow::SetupUi()
 		actGroupGizmo->addAction(actGizmoScale);
 	}
 	{
-		tbGame = sceneWnd->addToolBar("Play in Editor");
+		tbGame = addToolBar("Play in Editor");
 
 		actGamePlay = tbGame->addAction(QIcon(":/icons/btn-play.svg"), "A");
 		actGamePause = tbGame->addAction(QIcon(":/icons/btn-pause.svg"), "B");
@@ -555,7 +554,7 @@ void CEditorWindow::SetupMenuBar()
 		auto split = FString(w->ToolBarPath).Split("/\\");
 
 		QMenu* curMenu = nullptr;
-		for (auto* m : sceneMenuBar->children())
+		for (auto* m : menuBar->children())
 		{
 			QMenu* menu = qobject_cast<QMenu*>(m);
 			if (menu && menu->title() == split[0].c_str())
@@ -566,10 +565,10 @@ void CEditorWindow::SetupMenuBar()
 		}
 		if (curMenu == nullptr)
 		{
-			curMenu = new QMenu(split[0].c_str(), sceneMenuBar);
+			curMenu = new QMenu(split[0].c_str(), menuBar);
 			curMenu->setObjectName(split[0].c_str());
 			//curMenu->setTitle();
-			sceneMenuBar->addMenu(curMenu);
+			menuBar->addMenu(curMenu);
 		}
 
 		for (auto p = split.begin()++; p != split.end(); p++)
@@ -702,12 +701,12 @@ void CEditorWindow::UnloadCurrentTheme()
 
 void CEditorWindow::UserSaveState(QSettings& out)
 {
-	out.setValue("sceneDockManager", sceneDockManager->saveState());
+	//out.setValue("sceneDockManager", sceneDockManager->saveState());
 }
 
 void CEditorWindow::UserRestoreState(QSettings& in)
 {
-	sceneDockManager->restoreState(in.value("sceneDockManager").toByteArray());
+	//sceneDockManager->restoreState(in.value("sceneDockManager").toByteArray());
 }
 
 void CEditorWindow::SetTheme(const FString& themeName)

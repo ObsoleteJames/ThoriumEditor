@@ -33,7 +33,7 @@ class COpenFileDialog : public CFramelessDialog
 	Q_OBJECT
 
 public:
-	COpenFileDialog(const FString& filter, QWidget* parent = nullptr);
+	//COpenFileDialog(const FString& filter, QWidget* parent = nullptr);
 	COpenFileDialog(FAssetClass* filterType, QWidget* parent = nullptr);
 
 	inline FFile* File() const { return file; }

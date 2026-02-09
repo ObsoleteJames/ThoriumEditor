@@ -88,7 +88,7 @@ void CObjectTool::Init()
 
 	layout->addStretch(1);
 
-	gEditorWindow->sceneDockManager->addDockWidget(ads::LeftDockWidgetArea, toolWindow);
+	gEditorWindow->getDockManager()->addDockWidget(ads::LeftDockWidgetArea, toolWindow);
 	toolWindow->toggleView(false);
 
 }

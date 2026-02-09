@@ -7,6 +7,7 @@
 
 #include "Widgets/ContentBrowser.h"
 #include "Widgets/ViewportWidget.h"
+#include "Widgets/FileDialogs.h"
 #include "DockManager.h"
 #include <QUndoStack>
 #include <QBoxLayout>
@@ -15,6 +16,7 @@
 #include <QHeaderView>
 #include <QScrollArea>
 #include <QLabel>
+#include <QMenuBar>
 
 SDK_REGISTER_WINDOW(CMaterialEditor, "Material Editor", "Tools", NULL);
 
@@ -32,10 +34,9 @@ public:
 		auto* wnd = CToolsWindow::Create<CMaterialEditor>();
 		FString path = d->file->Path();
 		
-		//wnd->SetMaterial(CAssetManager::GetAsset<CMaterial>(d->file->Path()));
-		gEditorEngine->PushEvent(EventExec_PreUpdate, [wnd, path]() {
+		//gEditorEngine->PushEvent(EventExec_PreUpdate, [wnd, path]() {
 			wnd->SetMaterial(CAssetManager::GetAsset<CMaterial>(path));
-		});
+		//});
 	}
 } static FMaterialOpenAction_instance;
 
@@ -50,12 +51,31 @@ CMaterialEditor::~CMaterialEditor()
 
 void CMaterialEditor::SetupUi()
 {
-	CToolsWindow::SetupUi();
-
 	dockmanager = new ads::CDockManager(this);
 	dockmanager->setStyleSheet("");
 
 	setWindowTitle("Material Editor");
+
+	undoStack = new QUndoStack(this);
+
+	menuFile = new QMenu("File"); menuBar->addMenu(menuFile);
+	menuEdit = new QMenu("Edit"); menuBar->addMenu(menuEdit);
+
+	menuFile->addAction("New", this, &CMaterialEditor::NewMaterial);
+	menuFile->addAction("Open", this, &CMaterialEditor::OpenMaterial);
+	menuFile->addAction("Save");
+	menuFile->addAction("Save As");
+	menuFile->addSeparator();
+	menuFile->addAction("Close", this, [this]() { this->close(); });
+
+	QAction* undo = undoStack->createUndoAction(this);
+	QAction* redo = undoStack->createRedoAction(this);
+	undo->setIcon(QIcon(":/icons/undo.svg"));
+	redo->setIcon(QIcon(":/icons/redo.svg"));
+	undo->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Z));
+	redo->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Y));
+	menuEdit->addAction(undo);
+	menuEdit->addAction(redo);
 
 	// Viewport
 	{
@@ -69,6 +89,7 @@ void CMaterialEditor::SetupUi()
 		sceneDock->setObjectName("materialeditor_viewport_dockwidget");
 		sceneDock->setWidget(widget);
 		dockmanager->addDockWidget(ads::CenterDockWidgetArea, sceneDock);
+		sceneDock->setFeature(ads::CDockWidget::DockWidgetClosable, false);
 
 		viewport = new CViewportWidget(this);
 		layout->addWidget(viewport);
@@ -78,26 +99,34 @@ void CMaterialEditor::SetupUi()
 	{
 		//QScrollArea* propScroll = new QScrollArea(this);
 		propertiesWidget = new QWidget(this);
-		QVBoxLayout* layout = new QVBoxLayout(propertiesWidget);
-		propertiesWidget->setLayout(layout);
+		propertiesLayout = new QVBoxLayout(propertiesWidget);
+		propertiesWidget->setLayout(propertiesLayout);
 		//propScroll->setWidget(propertiesWidget);
 
 		QLabel* infoLabel = new QLabel("No material selected", propertiesWidget);
-		layout->addWidget(infoLabel);
+		propertiesLayout->addWidget(infoLabel);
 
 		propertiesDock = new ads::CDockWidget("Properties", this);
 		propertiesDock->setObjectName("materialeditor_properties_dockwidget");
 		propertiesDock->setWidget(propertiesWidget);
 		dockmanager->addDockWidget(ads::LeftDockWidgetArea, propertiesDock);
+		propertiesDock->setFeature(ads::CDockWidget::DockWidgetClosable, false);
 	}
 
 	// Shader Settins
 	{
-		//settingsDock = new ads::CDockWidget("Shader Settings", this);
-		//settingsDock->setObjectName("materialeditor_shadersettings_dockwidget");
-		//settingsDock->setWidget(settingsView);
-		//dockmanager->addDockWidget(ads::LeftDockWidgetArea, settingsDock);
+		settingsWidget = new QWidget(this);
+		settingsLayout = new QVBoxLayout(settingsWidget);
+
+		settingsDock = new ads::CDockWidget("Shader Settings", this);
+		settingsDock->setObjectName("materialeditor_shadersettings_dockwidget");
+
+		settingsDock->setWidget(settingsWidget);
+		dockmanager->addDockWidget(ads::CenterDockWidgetArea, settingsDock, propertiesDock->dockAreaWidget());
+		settingsDock->setFeature(ads::CDockWidget::DockWidgetClosable, false);
 	}
+
+	propertiesDock->setAsCurrentTab();
 
 	RestoreState();
 
@@ -145,6 +174,9 @@ void CMaterialEditor::SwapBuffers()
 
 bool CMaterialEditor::Shutdown()
 {
+	if (!undoStack->isClean())
+		return false;
+
 	SaveState();
 	return true;
 }
@@ -154,38 +186,62 @@ void CMaterialEditor::SetMaterial(CMaterial* mat)
 	if (material == mat)
 		return;
 
+	if (!undoStack->isClean())
+	{
+		return; // save material.
+	}
+
 	material = mat;
-	modelComp->SetMaterial(mat);
-	//UpdateProperties();
+	//modelComp->SetMaterial(mat);
+	UpdateProperties();
+
+	gEditorEngine->PushEvent(EventExec_PostUpdate, [=]() { modelComp->SetMaterial(mat); });
+}
+
+void CMaterialEditor::SetMaterial(const FString& path)
+{
 }
 
 void CMaterialEditor::NewMaterial()
 {
+	if (material && !undoStack->isClean())
+	{
+		// save material.
+		return;
+	}
+
+	material = CreateObject<CMaterial>();
+	material->SetShader("Simple");
 }
 
 void CMaterialEditor::OpenMaterial()
 {
+	COpenFileDialog dialog((FAssetClass*)CMaterial::StaticClass(), this);
+	if (dialog.exec() && dialog.File())
+	{
+		auto m = CAssetManager::GetAsset<CMaterial>(dialog.File()->Path());
+		SetMaterial(m);
+	}
 }
 
 void CMaterialEditor::UpdateProperties()
 {
-	//for (auto w : curProperties)
-	//{
-	//	propertiesWidget->layout()->removeWidget((QWidget*)w);
-	//	w->deleteLater();
-	//}
+	for (auto w : curProperties)
+	{
+		propertiesLayout->removeWidget((QWidget*)w);
+		w->deleteLater();
+	}
 	curProperties.Clear();
 
 	if (!material)
 		return;
 
 	//auto* shader = material->GetShaderSource();
-	
 	for (auto& prop : material->properties)
 	{
-		QLabel* item = new QLabel(prop.name.c_str(), propertiesWidget);
+		QLabel* item = new QLabel(prop.name.c_str());
 
-		propertiesWidget->layout()->addWidget(item);
+		propertiesLayout->addWidget(item);
 		curProperties.Add(item);
 	}
 }

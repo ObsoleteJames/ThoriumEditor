@@ -68,47 +68,47 @@ void CSaveFileDialog::Save()
 	deleteLater();
 }
 
-COpenFileDialog::COpenFileDialog(const FString& filter, QWidget* parent /*= nullptr*/) : CFramelessDialog(parent), file(nullptr)
-{
-	QFrame* frame = new QFrame(this);
-	QVBoxLayout* layout = new QVBoxLayout(frame);
-
-	//{
-	//	QVBoxLayout* l = new QVBoxLayout(this);
-	//	l->setContentsMargins(0, 0, 0, 0);
-	//	l->addWidget(frame);
-	//}
-
-	setCentralWidget(frame);
-	setTitle("Open Asset...");
-
-	assetBrowser = new CContentBrowserWidget(this);
-	assetBrowser->DisableFileCreation();
-	assetBrowser->AddAssetFilter(filter);
-	assetBrowser->LockAssetFilter();
-
-	QHBoxLayout* l2 = new QHBoxLayout();
-
-	QPushButton* btnSelect = new QPushButton("Select", this);
-	QPushButton* btnCancel = new QPushButton("Cancel", this);
-
-	btnSelect->setDisabled(true);
-	btnSelect->setProperty("type", QVariant("primary"));
-
-	l2->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding));
-	l2->addWidget(btnSelect);
-	l2->addWidget(btnCancel);
-
-	layout->addWidget(assetBrowser);
-	layout->addLayout(l2);
-
-	resize(850, 560);
-
-	connect(assetBrowser, &CContentBrowserWidget::fileClicked, this, [=]() { file = assetBrowser->SelectedFile(); btnSelect->setDisabled(file == nullptr); });
-	connect(assetBrowser, &CContentBrowserWidget::fileDoubleClicked, this, [=]() { file = assetBrowser->SelectedFile(); done(1); deleteLater(); });
-	connect(btnSelect, &QPushButton::clicked, this, [=]() { done(1); deleteLater(); });
-	connect(btnCancel, &QPushButton::clicked, this, [=]() { done(0); deleteLater(); });
-}
+//COpenFileDialog::COpenFileDialog(const FString& filter, QWidget* parent /*= nullptr*/) : CFramelessDialog(parent), file(nullptr)
+//{
+//	QFrame* frame = new QFrame(this);
+//	QVBoxLayout* layout = new QVBoxLayout(frame);
+//
+//	//{
+//	//	QVBoxLayout* l = new QVBoxLayout(this);
+//	//	l->setContentsMargins(0, 0, 0, 0);
+//	//	l->addWidget(frame);
+//	//}
+//
+//	setCentralWidget(frame);
+//	setTitle("Open Asset...");
+//
+//	assetBrowser = new CContentBrowserWidget(this);
+//	assetBrowser->DisableFileCreation();
+//	assetBrowser->AddAssetFilter(filter);
+//	assetBrowser->LockAssetFilter();
+//
+//	QHBoxLayout* l2 = new QHBoxLayout();
+//
+//	QPushButton* btnSelect = new QPushButton("Select", this);
+//	QPushButton* btnCancel = new QPushButton("Cancel", this);
+//
+//	btnSelect->setDisabled(true);
+//	btnSelect->setProperty("type", QVariant("primary"));
+//
+//	l2->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding));
+//	l2->addWidget(btnSelect);
+//	l2->addWidget(btnCancel);
+//
+//	layout->addWidget(assetBrowser);
+//	layout->addLayout(l2);
+//
+//	resize(850, 560);
+//
+//	connect(assetBrowser, &CContentBrowserWidget::fileClicked, this, [=]() { file = assetBrowser->SelectedFile(); btnSelect->setDisabled(file == nullptr); });
+//	connect(assetBrowser, &CContentBrowserWidget::fileDoubleClicked, this, [=]() { file = assetBrowser->SelectedFile(); done(1); deleteLater(); });
+//	connect(btnSelect, &QPushButton::clicked, this, [=]() { done(1); deleteLater(); });
+//	connect(btnCancel, &QPushButton::clicked, this, [=]() { done(0); deleteLater(); });
+//}
 
 COpenFileDialog::COpenFileDialog(FAssetClass* filterType, QWidget* parent /*= nullptr*/) : CFramelessDialog(parent), file(nullptr)
 {
@@ -128,13 +128,13 @@ COpenFileDialog::COpenFileDialog(FAssetClass* filterType, QWidget* parent /*= nu
 	assetBrowser->DisableFileCreation();
 	if (filterType)
 	{
-		assetBrowser->AddAssetFilter(ToWString(filterType->GetExtension()));
+		assetBrowser->AddAssetFilter(filterType);
 
 		TArray<FClass*> children;
 		CModuleManager::FindChildClasses(filterType, children);
 		
 		for (auto* c : children)
-			assetBrowser->AddAssetFilter(ToWString(((FAssetClass*)c)->GetExtension()));
+			assetBrowser->AddAssetFilter(filterType);
 	}
 	assetBrowser->LockAssetFilter();
 

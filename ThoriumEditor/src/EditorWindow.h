@@ -91,11 +91,11 @@ protected:
 	void UserRestoreState(QSettings& in) override;
 
 public:
-	QMenuBar* sceneMenuBar;
-	ads::CDockManager* sceneDockManager;
+	//QMenuBar* sceneMenuBar;
+	//ads::CDockManager* sceneDockManager;
 
 	// Windows
-	CMainDockWidget* sceneWnd; // the main dock widget for the scene, contains the menu and toolbars
+	//CMainDockWidget* sceneWnd; // the main dock widget for the scene, contains the menu and toolbars
 	CConsoleWidget* consoleWindow;
 	ads::CDockWidget* contentBrowser;
 	CContentBrowserWidget* contentBrowserWidget;

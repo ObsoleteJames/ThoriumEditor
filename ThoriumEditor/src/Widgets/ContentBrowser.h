@@ -21,6 +21,7 @@ class QTableView;
 class QStandardItemModel;
 class QSplitter;
 class QSlider;
+class FClass;
 
 class CContentBrowserWidget;
 
@@ -29,16 +30,16 @@ class CAssetFilterMenu : public QMenu
 	Q_OBJECT
 
 public:
-	CAssetFilterMenu(TArray<FString>* filterList, QWidget* parent = nullptr);
+	CAssetFilterMenu(TArray<FClass*>* filterList, QWidget* parent = nullptr);
 	~CAssetFilterMenu();
 
-	void SetFilter(const FString& ext, bool enabled);
+	void SetFilter(FClass* type, bool enabled);
 
 Q_SIGNALS:
 	void OnFilterUpdate();
 
 private:
-	TArray<FString>* filterList;
+	TArray<FClass*>* filterList;
 	TArray<QAction*> actions;
 
 };
@@ -138,7 +139,8 @@ public:
 	void DisableFileCreation() { bCreateFiles = false; }
 
 	void LockAssetFilter();
-	inline void AddAssetFilter(FString fileExt) { activeFilters.Add(fileExt); UpdateView(); }
+	//inline void AddAssetFilter(FString fileExt) { activeFilters.Add(fileExt); UpdateView(); }
+	inline void AddAssetFilter(FClass* t) { activeFilters.Add(t); UpdateView(); }
 
 	inline EViewMode ViewMode() const { return bDirViewGrid ? VIEW_GRID : VIEW_LIST; }
 	inline void SetViewMode(EViewMode vm) { bDirViewGrid = vm == VIEW_GRID; }
@@ -186,7 +188,7 @@ private:
 	bool bAllowMultiSelect = true;
 	bool bFiltersLocked = false;
 
-	TArray<FString> activeFilters;
+	TArray<FClass*> activeFilters;
 
 	SizeType historyIndex = 0;
 	TArray<FString> dirHistory;

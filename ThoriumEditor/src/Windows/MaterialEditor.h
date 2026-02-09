@@ -9,6 +9,7 @@ class CViewportWidget;
 class QUndoStack;
 class QTableView;
 class QStandardItemModel;
+class QVBoxLayout;
 
 class CMaterialEditor : public CToolsWindow
 {
@@ -24,6 +25,7 @@ public:
 
 public:
 	void SetMaterial(CMaterial* mat);
+	void SetMaterial(const FString& path);
 	inline CMaterial* GetMaterial() const { return material; }
 
 	void NewMaterial();
@@ -49,8 +51,14 @@ private:
 
 	QUndoStack* undoStack = nullptr;
 
+	QMenu* menuFile;
+	QMenu* menuEdit;
+
 	QWidget* propertiesWidget;
+	QVBoxLayout* propertiesLayout;
+
 	QWidget* settingsWidget;
+	QVBoxLayout* settingsLayout;
 
 	ads::CDockWidget* propertiesDock = nullptr;
 	ads::CDockWidget* settingsDock = nullptr;

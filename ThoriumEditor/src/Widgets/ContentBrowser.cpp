@@ -80,7 +80,7 @@ private:
 	int t;
 };
 
-CAssetFilterMenu::CAssetFilterMenu(TArray<FString>* l, QWidget* parent) : QMenu(parent)
+CAssetFilterMenu::CAssetFilterMenu(TArray<FClass*>* l, QWidget* parent) : QMenu(parent)
 {
 	filterList = l;
 	
@@ -104,7 +104,7 @@ CAssetFilterMenu::CAssetFilterMenu(TArray<FString>* l, QWidget* parent) : QMenu(
 		//QAction* action = new QAction(gEditorEngine()->GetResourceIcon(ToWString(c->GetExtension())), c->GetName().c_str());
 		QAction* action = new QAction(c->GetName().c_str());
 		action->setCheckable(true);
-		connect(action, &QAction::triggered, this, [=](bool b) { this->SetFilter(c->GetExtension(), b); });
+		connect(action, &QAction::triggered, this, [=](bool b) { this->SetFilter(c, b); });
 		addAction(action);
 		actions.Add(action);
 	}
@@ -114,16 +114,16 @@ CAssetFilterMenu::~CAssetFilterMenu()
 {
 }
 
-void CAssetFilterMenu::SetFilter(const FString& ext, bool enabled)
+void CAssetFilterMenu::SetFilter(FClass* type, bool enabled)
 {
 	if (enabled)
 	{
-		if (filterList->Find(ext) == filterList->end())
-			filterList->Add(ext);
+		if (filterList->Find(type) == filterList->end())
+			filterList->Add(type);
 	}
 	else
 	{
-		auto it = filterList->Find(ext);
+		auto it = filterList->Find(type);
 		if (it != filterList->end())
 			filterList->Erase(it);
 	}
@@ -408,9 +408,9 @@ void CContentBrowserWidget::dirDoubleClicked(const QModelIndex& index)
 		selectedFile = file;
 		emit(fileDoubleClicked());
 
-		if (!file)
+		if (!file || !bCreateFiles)
 			return;
-
+		
 		FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
 
 		if (auto* action = FAssetBrowserAction::GetAction(type, BA_FILE_OPEN); action)
@@ -895,14 +895,13 @@ void CContentBrowserWidget::UpdateView()
 
 	for (auto* f : dir->GetFiles())
 	{
+		FAssetClass* type = CAssetManager::GetAssetTypeByFile(f);
 		if (activeFilters.Size() > 0)
 		{
-			auto it = activeFilters.Find(f->Extension());
+			auto it = activeFilters.Find(type);
 			if (it == activeFilters.end())
 				continue;
 		}
-
-		FAssetClass* type = CAssetManager::GetAssetTypeByFile(f);
 
 		//QListWidgetItem* item = new QListWidgetItem(QString(f->Name().c_str()), dirView, EItemTypes_AssetFile);
 		CFileItem* item = new CFileItem(QString(f->Name().c_str()), EItemTypes_AssetFile);

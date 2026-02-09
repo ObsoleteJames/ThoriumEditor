@@ -319,7 +319,12 @@ void CEditorEngine::UpdateEvents(EEventExec time)
 	static TArray<IEditorEvent*> eventsToFree;
 	eventsToFree.Clear();
 
-	for (auto* event : events)
+	auto c = events;
+
+	// unlock the mutex while executing events to prevent deadlocks if an event tries to push another event.
+	eventMutex.unlock();
+
+	for (auto* event : c)
 	{
 		if (event->execTime == time)
 		{
@@ -328,6 +333,8 @@ void CEditorEngine::UpdateEvents(EEventExec time)
 			eventsToFree.Add(event);
 		}
 	}
+
+	eventMutex.lock();
 
 	for (auto* e : eventsToFree)
 	{

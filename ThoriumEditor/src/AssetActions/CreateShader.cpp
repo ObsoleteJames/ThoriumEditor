@@ -44,6 +44,8 @@ public:
 
 	void Invoke(FBrowserActionData* data) override
 	{
-		//data->browser->PrepareNewFile(&FShaderCreateMenu::DoCreate, (FAssetClass*)CShaderSource::StaticClass());
+		data->menu->addAction("Create Shader", [data](bool) {
+			data->browser->PrepareNewFile((FAssetClass*)CShaderSource::StaticClass(), &FShaderCreateMenu::DoCreate);
+		});
 	}
 } static FShaderCreateMenu_instance;

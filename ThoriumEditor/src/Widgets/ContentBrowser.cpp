@@ -10,6 +10,7 @@
 #include "EditorEngine.h"
 #include "System.h"
 #include "EditorConfig.h"
+#include "ContentBrowserDelegate.h"
 
 #include <QSplitter>
 #include <QBoxLayout>
@@ -26,6 +27,7 @@
 #include <QMessageBox>
 #include <QFileIconProvider>
 #include <QStandardItemModel>
+#include <QItemDelegate>
 
 #define ASSET_MAX_GRID_SIZE 5
 
@@ -79,6 +81,31 @@ public:
 private:
 	int t;
 };
+
+FCBItemDelegate::FCBItemDelegate(QWidget* parent) : QStyledItemDelegate(parent)
+{
+}
+
+void FCBItemDelegate::destroyEditor(QWidget* editor, const QModelIndex& index) const
+{
+	if (lastEventType == QEvent::KeyPress && (lastKey == Qt::Key_Return || lastKey == Qt::Key_Enter))
+		emit editorFinished(index);
+	else	
+		emit editorCancelled(index);
+
+	QStyledItemDelegate::destroyEditor(editor, index);
+}
+
+bool FCBItemDelegate::eventFilter(QObject* object, QEvent* event)
+{
+	lastEventType = event->type();
+	if (event->type() == QEvent::KeyPress)
+	{
+		QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+		lastKey = keyEvent->key();
+	}
+	return QStyledItemDelegate::eventFilter(object, event);
+}
 
 CAssetFilterMenu::CAssetFilterMenu(TArray<FClass*>* l, QWidget* parent) : QMenu(parent)
 {
@@ -186,6 +213,13 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 	dirTableView->setEditTriggers(QAbstractItemView::EditKeyPressed);
 	dirTableView->setModel(dirModel);
 
+	FCBItemDelegate* itemDelegate = new FCBItemDelegate(this);
+
+	dirListView->setItemDelegate(itemDelegate);
+	dirTableView->setItemDelegate(itemDelegate);
+
+	//newItem = new QStandardItem();
+
 	connect(dirListView, &QListView::customContextMenuRequested, this, &CContentBrowserWidget::CreateContextMenu);
 	connect(dirTableView, &QListView::customContextMenuRequested, this, &CContentBrowserWidget::CreateContextMenu);
 
@@ -195,60 +229,8 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 	connect(dirTableView, &QListView::doubleClicked, this, &CContentBrowserWidget::dirDoubleClicked);
 	connect(dirTableView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &CContentBrowserWidget::dirSelectionChanged);
 
-	/*connect(dirView, &QListWidget::itemDoubleClicked, this, [=](QListWidgetItem* item) {
-		if (item->type() == EItemTypes_Folder)
-		{
-			FString newDir = dir;
-			if (*newDir.last() == L'/')
-				newDir.Erase(newDir.last());
-
-			if (newDir.IsEmpty())
-				newDir = (const char*)item->text().toUtf8().constData();
-			else
-				newDir = newDir + "/" + (const char*)item->text().toUtf8().constData();
-
-			SetDirectory(newDir);
-		}
-		else if (item->type() == EItemTypes_AssetFile)
-		{
-			FFile* file = (FFile*)item->data(257).toULongLong();
-			selectedFile = file;
-			emit(fileDoubleClicked());
-
-			if (!file)
-				return;
-
-			FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
-
-			if (auto* action = FAssetBrowserAction::GetAction(type, BA_FILE_OPEN); action)
-			{
-				FBADataBase data{ this, nullptr, file };
-				action->Invoke(&data);
-			}
-		}
-	});
-	connect(dirView, &QListWidget::itemSelectionChanged, this, [=]() {
-		selectedFiles.Clear();
-		auto items = dirView->selectedItems();
-		for (auto* item : items)
-		{
-			if (item->type() == EItemTypes_AssetFile)
-			{
-				selectedFiles.Add((FFile*)item->data(257).toULongLong());
-			}
-		}
-
-		selectedFile = nullptr;
-		if (dirView->selectedItems().size() == 0)
-			return;
-
-		auto* item = dirView->selectedItems()[0];
-		if (item->type() == EItemTypes_AssetFile)
-		{
-			selectedFile = (FFile*)item->data(257).toULongLong();
-		}
-		emit(fileClicked());
-	});*/
+	connect(itemDelegate, &FCBItemDelegate::editorFinished, this, &CContentBrowserWidget::finishEditItem);
+	connect(itemDelegate, &FCBItemDelegate::editorCancelled, this, &CContentBrowserWidget::cancelEditItem);
 
 	connect(fileTree, &QTreeWidget::itemSelectionChanged, this, [=]() {
 		if (fileTree->selectedItems().size() == 0)
@@ -261,8 +243,6 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 		else if (item->type() == EItemTypes_ModFolder)
 			SetDirectory((const char*)item->text(0).toUtf8().constData(), FString());
 	});
-
-	//lineFrame->setProperty("type", QVariant(1));
 
 	btnRootFolder->setProperty("type", QVariant("clear"));
 	btnRootFolder->setMaximumSize(QSize(24, 24));
@@ -408,7 +388,7 @@ void CContentBrowserWidget::dirDoubleClicked(const QModelIndex& index)
 		selectedFile = file;
 		emit(fileDoubleClicked());
 
-		if (!file || !bCreateFiles)
+		if (!file || !bAllowFileEdit)
 			return;
 		
 		FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
@@ -424,8 +404,6 @@ void CContentBrowserWidget::dirDoubleClicked(const QModelIndex& index)
 void CContentBrowserWidget::dirSelectionChanged(const QItemSelection& selected, const QItemSelection& dselected)
 {
 	selectedFiles.Clear();
-	//auto items = dirModel->selectedItems();
-	//auto items = selected;
 
 	for (auto& range : selected)
 	{
@@ -444,12 +422,79 @@ void CContentBrowserWidget::dirSelectionChanged(const QItemSelection& selected, 
 		return;
 
 	selectedFile = selectedFiles[0];
-	//auto* item = dirView->selectedItems()[0];
-	//if (item->type() == EItemTypes_AssetFile)
-	//{
-	//	selectedFile = (FFile*)item->data(257).toULongLong();
-	//}
 	emit(fileClicked());
+}
+
+void CContentBrowserWidget::finishEditItem(const QModelIndex& index)
+{
+	CFileItem* item = (CFileItem*)dirModel->item(index.row());
+	if (item->type() == EItemTypes_Folder)
+	{
+		if (item == newItem)
+		{
+			QString name = newItem->text();
+			dirModel->removeRow(newItem->row());
+
+			newItem = nullptr;
+
+			if (name.isEmpty())
+				return;
+
+			CFileSystem::FindMod(mod)->CreateDir(dir + "/" + name.toStdString());
+			UpdateView();
+		}
+		else
+		{
+			FString newName = item->text().toStdString();
+			FDirectory* d = (FDirectory*)item->data(257).toULongLong();
+			if (newName == d->GetName())
+				return;
+
+			if (!dir.IsEmpty())
+				newName = dir + "/" + newName;
+
+			CFileSystem::FindMod(mod)->RenameDir(d, newName);
+			UpdateView();
+		}
+	}
+	if (item->type() == EItemTypes_AssetFile)
+	{
+		if (item == newItem && onCreatedFileFun)
+		{
+			FString path = item->text().toStdString();
+			if (!dir.IsEmpty())
+				path = dir + "/" + path;
+
+			onCreatedFileFun(path, mod);
+
+			dirModel->removeRow(newItem->row());
+			newItem = nullptr;
+			UpdateView();
+		}
+		else
+		{
+			FString newName = item->text().toStdString();
+			FFile* f = (FFile*)item->data(257).toULongLong();
+			if (newName == f->Name())
+				return;
+
+			if (!dir.IsEmpty())
+				newName = dir + "/" + newName;
+
+			CFileSystem::FindMod(mod)->RenameFile(f, newName);
+			UpdateView();
+		}
+	}
+}
+
+void CContentBrowserWidget::cancelEditItem(const QModelIndex& index)
+{
+	auto* item = dirModel->item(index.row());
+	if (item != newItem)
+		return;
+
+	dirModel->removeRow(newItem->row());
+	newItem = nullptr;
 }
 
 void CContentBrowserWidget::SetDirectory(const FString& d, bool fromHistory)
@@ -580,7 +625,6 @@ void CContentBrowserWidget::AddDirToTree(FMod* mod, FDirectory* dir, QTreeWidget
 
 void CContentBrowserWidget::CreateContextMenu(QPoint point)
 {
-	//auto* item = dirView->itemAt(point);
 	auto index = dirListView->indexAt(point);
 	auto* item = dirModel->item(index.row());
 
@@ -668,53 +712,14 @@ void CContentBrowserWidget::CreateContextMenu(QPoint point)
 	}
 	else
 	{
-		menu.addAction("New Folder", this, [=]() { 
-			CFramelessDialog* dialog = new CFramelessDialog(this);
+		menu.addAction("New Folder", this, &CContentBrowserWidget::PrepareNewDirectory);
 
-			QFrame* frame = new QFrame(dialog);
-			QVBoxLayout* layout = new QVBoxLayout(frame);
-
-			dialog->setCentralWidget(frame);
-			dialog->setTitle("New Folder");
-
-			QLineEdit* nameEdit = new QLineEdit(this);
-			nameEdit->setPlaceholderText("Name...");
-
-			layout->addWidget(nameEdit);
-
-			QHBoxLayout* l1 = new QHBoxLayout();
-
-			QPushButton* btnImport = new QPushButton("Create", frame);
-			btnImport->setProperty("type", QVariant("primary"));
-			btnImport->setEnabled(false);
-			QPushButton* btnCancel = new QPushButton("Cancel", frame);
-
-			l1->addWidget(btnImport);
-			l1->addWidget(btnCancel);
-
-			layout->addLayout(l1);
-
-			connect(nameEdit, &QLineEdit::textChanged, this, [=](const QString& str) { btnImport->setEnabled(!str.isEmpty()); });
-			connect(nameEdit, &QLineEdit::returnPressed, this, [=]() { dialog->done(true); });
-
-			connect(btnImport, &QPushButton::clicked, this, [=]() { dialog->done(true); });
-			connect(btnCancel, &QPushButton::clicked, this, [=]() { dialog->done(false); });
-
-			if (dialog->exec() && !nameEdit->text().isEmpty())
-			{
-				CFileSystem::FindMod(mod)->CreateDir(dir + "/" + nameEdit->text().toStdString());
-				UpdateView();
-			}
-		});
-
-		if (bCreateFiles)
+		if (bAllowFileEdit)
 		{
 			menu.addSeparator();
 
-			//for (auto& m : assetMenus)
-			//	menu.addAction(m.name, this, [=]() { m.func(curDir); });
-
-			for (auto* action : FAssetBrowserAction::GetActions())
+			auto& actions = FAssetBrowserAction::GetActions();
+			for (auto* action : actions)
 			{
 				if (action->Type() == BA_WINDOW_CONTEXTMENU)
 				{
@@ -723,7 +728,8 @@ void CContentBrowserWidget::CreateContextMenu(QPoint point)
 				}
 			}
 
-			menu.addSeparator();
+			if (actions.Size() > 0)
+				menu.addSeparator();
 			menu.addAction("Import Asset", this, [=]() { ImportAsset(); });
 		}
 	}
@@ -847,6 +853,38 @@ void CContentBrowserWidget::LockAssetFilter()
 {
 	bFiltersLocked = true; 
 	btnFilters->setDisabled(true);
+}
+
+void CContentBrowserWidget::PrepareNewFile(FClass* type, void(*onFinishFun)(const FString& outPath, const FString& mod))
+{
+	if (!bAllowFileEdit || newItem)
+		return;
+	
+	newItem = new CFileItem("New " + QString(type->GetName().c_str()), EItemTypes_AssetFile);
+	newItem->setData(QVariant((SizeType)type), 257);
+	newItem->setIcon(QIcon(":/icons/file.svg"));
+	dirModel->appendRow({ newItem, new QStandardItem(type->GetName().c_str()), new QStandardItem("0") });
+	onCreatedFileFun = onFinishFun;
+
+	if (!onCreatedFileFun)
+		CONSOLE_LogWarning("CContentBrowserWidget", "Preparing file creation but no finish callback was provided!");
+
+	if (bDirViewGrid)
+		dirListView->edit(newItem->index());
+	else
+		dirTableView->edit(newItem->index());
+}
+
+void CContentBrowserWidget::PrepareNewDirectory()
+{
+	newItem = new CFileItem("New Folder", EItemTypes_Folder);
+	newItem->setIcon(QIcon(":/icons/folder.svg"));
+	dirModel->appendRow({ newItem, new QStandardItem("Folder"), new QStandardItem("") });
+
+	if (bDirViewGrid)
+		dirListView->edit(newItem->index());
+	else
+		dirTableView->edit(newItem->index());
 }
 
 void CContentBrowserWidget::OnAssetUpdate()

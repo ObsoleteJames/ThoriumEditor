@@ -23,6 +23,9 @@ public:
 	{
 		//if (ImGui::MenuItem("Create Material"))
 		//	data->browser->PrepareNewFile(&Make, (FAssetClass*)CMaterial::StaticClass());
+		data->menu->addAction("Create Material", [=]() {
+			data->browser->PrepareNewFile((FAssetClass*)CMaterial::StaticClass(), &Make);
+		});
 	}
 } static FCreateMaterialAction_Instance;
 
@@ -44,6 +47,9 @@ public:
 	{
 		//if (ImGui::MenuItem("Create Model"))
 		//	data->browser->PrepareNewFile(&Make, (FAssetClass*)CModelAsset::StaticClass());
+		data->menu->addAction("Create Model", [=]() {
+			data->browser->PrepareNewFile((FAssetClass*)CModelAsset::StaticClass(), &Make);
+		});
 	}
 } static FCreateModelAction_Instance;
 
@@ -65,6 +71,9 @@ public:
 	{
 		//if (ImGui::MenuItem("Create Animation"))
 		//	;//data->browser->PrepareNewFile(&Make, (FAssetClass*)CAnimation::StaticClass());
+		data->menu->addAction("Create Animation", [=]() {
+			data->browser->PrepareNewFile((FAssetClass*)CAnimation::StaticClass(), &Make);
+		});
 	}
 } static FCreateAnimAction_Instance;
 

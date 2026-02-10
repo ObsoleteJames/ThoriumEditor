@@ -22,6 +22,8 @@ class QStandardItemModel;
 class QSplitter;
 class QSlider;
 class FClass;
+class QStandardItem;
+class CFileItem;
 
 class CContentBrowserWidget;
 
@@ -135,8 +137,8 @@ public:
 	void SetGridSize(int size);
 	inline int GridSize() const { return dirViewSize; }
 
-	void AllowFileCreation() { bCreateFiles = true; }
-	void DisableFileCreation() { bCreateFiles = false; }
+	void AllowFileCreation() { bAllowFileEdit = true; }
+	void DisableFileCreation() { bAllowFileEdit = false; }
 
 	void LockAssetFilter();
 	//inline void AddAssetFilter(FString fileExt) { activeFilters.Add(fileExt); UpdateView(); }
@@ -154,6 +156,9 @@ public:
 	//static void RegisterAssetCreateMenu(const QString& name, void(*func)(const FString& path)) { assetMenus.Add({ name, func }); }
 
 	inline void Refresh() { UpdateView(); }
+
+	void PrepareNewFile(FClass* type, void(*onFinishFun)(const FString& outPath, const FString& mod));
+	void PrepareNewDirectory();
 
 private:
 	void OnAssetUpdate();
@@ -181,9 +186,12 @@ private Q_SLOTS:
 	void dirDoubleClicked(const QModelIndex& index);
 	void dirSelectionChanged(const QItemSelection& selected, const QItemSelection& dselected);
 
+	void finishEditItem(const QModelIndex& index);
+	void cancelEditItem(const QModelIndex& index);
+
 private:
 	int dirViewSize = 3;
-	bool bCreateFiles = true;
+	bool bAllowFileEdit = true;
 	bool bDirViewGrid = true;
 	bool bAllowMultiSelect = true;
 	bool bFiltersLocked = false;
@@ -204,6 +212,9 @@ private:
 	QListView* dirListView;
 	QTableView* dirTableView;
 	QStandardItemModel* dirModel;
+
+	CFileItem* newItem = nullptr;
+	void(*onCreatedFileFun)(const FString& outPath, const FString& mod) = nullptr;
 
 	QLineEdit* curFolderEdit;
 

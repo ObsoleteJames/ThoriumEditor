@@ -9,6 +9,7 @@ class QScrollArea;
 class QVBoxLayout;
 class CCollapsableWidget;
 class QUndoCommand;
+class QPushButton;
 
 class IBasePropertyEditor : public QWidget
 {
@@ -23,12 +24,19 @@ public:
 	// this will be called after OnValueChanged has been emitted.
 	virtual QUndoCommand* ProvideUndoCmd();
 
+	virtual void SetDefaultObject(CObject* obj);
+
+protected:
+	virtual QPushButton* AddRevertBtn(IPropertyHandler* handler);
+
 Q_SIGNALS:
 	void OnValueChanged();
 
 protected:
 	QUndoCommand* curUndoCmd = nullptr;
 
+	const FProperty* property = nullptr;
+	CObject* cdo = nullptr;
 };
 
 class CPropertyEditorWidget : public QWidget
@@ -54,7 +62,7 @@ private:
 
 	CCollapsableWidget* GetCategoryWidget(const FString& category);
 
-	void AddProperties(FClass* type, CObject* obj, const FString& overrideCat = FString());
+	void AddProperties(FStruct* type, void* obj, CObject* cdo = nullptr, bool bRecursive = true, const FString& overrideCat = FString());
 	void AddProperty(IBasePropertyEditor* editor, CObject* obj = nullptr, const FProperty* field = nullptr);
 
 protected:

@@ -44,6 +44,7 @@ private:
 
 	//	 entId  -  folderItem
 	TMap<SizeType, QTreeWidgetItem*> entityFolderLut;
+	CWorld* curWorld = nullptr;
 
 	FOutlinerFolder folderRoot;
 

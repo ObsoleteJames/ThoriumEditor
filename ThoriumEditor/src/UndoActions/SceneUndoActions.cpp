@@ -82,7 +82,7 @@ CmdDeleteEntity::CmdDeleteEntity(CEntity* ent) : QUndoCommand("Delete Entity")
 	for (auto comp : ent->GetAllComponents())
 		components.Add({ comp.second->GetClass(), comp.first, comp.second->Name(), comp.second->IsUserCreated() });
 
-	ent->Serialize(data);
+	ent->Serialize(data, FSerializeSettings());
 }
 
 void CmdDeleteEntity::undo()

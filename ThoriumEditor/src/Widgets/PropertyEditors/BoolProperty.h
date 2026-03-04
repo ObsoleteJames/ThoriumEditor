@@ -1,10 +1,13 @@
 #pragma once
 
 #include <Util/Core.h>
+#include <Util/Pointer.h>
 #include "Widgets/PropertyEditor.h"
+#include "Object/PropertyHandler.h"
 
 struct FProperty;
 class QCheckBox;
+class QPushButton;
 
 class CBoolProperty : public IBasePropertyEditor
 {
@@ -12,14 +15,14 @@ class CBoolProperty : public IBasePropertyEditor
 
 public:
 	CBoolProperty(bool* value, const FProperty* property, QWidget* parent = nullptr);
-	CBoolProperty(const FString& name, bool* value, QWidget* parent = nullptr);
 	
 	void Update();
 
-	void SetValue(bool* value) { this->value = value; Update(); }
+	void SetValue(bool* value) { handler->SetValue(value); Update(); }
 
 private:
 	QCheckBox* editor;
-	bool* value;
 
+	TUniquePtr<IPropertyHandler> handler;
+	QPushButton* revertBtn;
 };

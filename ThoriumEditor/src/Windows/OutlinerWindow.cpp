@@ -129,7 +129,7 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 
 	sceneItem = new QTreeWidgetItem(outlinerTree);
 	sceneItem->setText(1, "Scene");
-	sceneItem->setData(1, Qt::UserRole, QVariant(EItemTypes_AssetFile));
+	sceneItem->setData(1, Qt::UserRole, QVariant(EItemTypes_World));
 	sceneItem->setExpanded(true);
 
 	layout->addWidget(filter);
@@ -143,9 +143,18 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 		for (auto* i : items)
 		{
 			QTreeWidgetItem* item = i;
-			auto ent = item->data(0, Qt::UserRole).toULongLong();
-			
-			selectedObjects.Add((CEntity*)ent);
+
+			if (item->data(1, Qt::UserRole).toInt() == EItemTypes_Entity)
+			{
+				auto ent = item->data(0, Qt::UserRole).toULongLong();
+				selectedObjects.Add((CEntity*)ent);
+				continue;
+			}
+			if (item->data(1, Qt::UserRole).toInt() == EItemTypes_World)
+			{
+				selectedObjects.Add(gWorld);
+				continue;
+			}
 		}
 
 		gEditorEngine->SelectObjects(selectedObjects);
@@ -154,6 +163,13 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 		QTreeWidgetItem* item = outlinerTree->itemAt(point);
 		if (item)
 		{
+			if (item->data(1, Qt::UserRole).toInt() == EItemTypes_World)
+			{
+				QMenu menu(this);
+				menu.addAction(QIcon(":/icons/entity.svg"), "Add Entity...");
+				menu.addAction("Add Sub Scene...");
+				menu.exec(QCursor::pos());
+			};
 			if (item->data(1, Qt::UserRole).toInt() == EItemTypes_Entity)
 			{
 				CEntity* ent = (CEntity*)item->data(0, Qt::UserRole).value<SizeType>();
@@ -196,7 +212,7 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 				outlinerTree->addTopLevelItem(folder);
 				outlinerTree->editItem(folder, 0);
 			});
-			menu.addAction(QIcon(":/icons/entity.svg"), "New Entity...");
+			menu.addAction(QIcon(":/icons/entity.svg"), "New Entity...", this, [=]() { gEditorWindow->CreateEntityPopup(); });
 
 			menu.exec(QCursor::pos());
 		}
@@ -237,6 +253,10 @@ void COutlinerWindow::Update()
 {
 	if (!gWorld)
 		return;
+
+	if (gWorld != curWorld)
+		Clear();
+	curWorld = gWorld;
 
 	auto ents = gWorld->GetEntities();
 

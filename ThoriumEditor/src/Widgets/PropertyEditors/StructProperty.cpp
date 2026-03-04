@@ -16,8 +16,11 @@ CStructProperty::CStructProperty(void* ptr, const FProperty* property, QWidget* 
 	FStruct* type = CModuleManager::FindStruct(property->typeName);
 	THORIUM_ASSERT(type, "Failed to find struct type.");
 
+	// since this is no longer done by CPropertyEditorWidget, we need to do this here to get the correct pointer to the struct data.
+	ptr = (void*)((SizeType)ptr + property->offset);
+
 	CCollapsableWidget* header = new CCollapsableWidget(property->name.c_str(), nullptr, this);
-	header->SetHeaderType(CCollapsableWidget::NESTED_HEADER);
+	header->SetHeaderType(CCollapsableWidget::TREE_HEADER);
 	QWidget* content = new QWidget(header);
 	QVBoxLayout* cl = new QVBoxLayout(content);
 	cl->setContentsMargins(4, 0, 0, 0);
@@ -42,12 +45,11 @@ CStructProperty::CStructProperty(void* ptr, const FProperty* property, QWidget* 
 				editor->setEnabled(false);
 
 			cl->addWidget(editor);
-			connect(editor, &IBasePropertyEditor::OnValueChanged, this, [=]() { emit(OnValueChanged()); });
+			connect(editor, &IBasePropertyEditor::OnValueChanged, this, [=]() { curUndoCmd = editor->ProvideUndoCmd(); emit(OnValueChanged()); });
 		}
 	}
 }
 
 CStructProperty::CStructProperty(const FString& name, void* ptr, FStruct* type, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent)
 {
-
 }

@@ -3,6 +3,7 @@
 #include "Widgets/CollapsableWidget.h"
 #include "Object/Class.h"
 #include "EditorEngine.h"
+#include "Object/PropertyTypes.h"
 
 #include <QLabel>
 #include <QPushButton>
@@ -17,12 +18,14 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 	layout()->setContentsMargins(0, 0, 0, 0);
 
 	obj = ptr;
-	helper = (FArrayHelper*)property->typeHelper;
+
+	handler = property->GetHandler<FArrayPropertyHandler>(ptr);
 	typeName = property->typeName;
 
 	CCollapsableWidget* header = new CCollapsableWidget(property->name.c_str(), nullptr, this);
-	header->SetHeaderType(CCollapsableWidget::NESTED_HEADER);
-	header->GetHeader()->setMinimumHeight(32);
+	header->SetHeaderType(CCollapsableWidget::TREE_HEADER);
+	header->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+	//header->GetHeader()->setMinimumHeight(32);
 	content = new QWidget(header);
 	QVBoxLayout* cl = new QVBoxLayout(content);
 	cl->setContentsMargins(16, 0, 0, 0);
@@ -35,19 +38,19 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 
 	QPushButton* btnAdd = new QPushButton("+", this);
 	btnAdd->setProperty("type", QVariant("clear"));
-	headerLayout->addStretch(0);
-	headerLayout->addWidget(btnAdd);
+	//cl->addStretch(0);
+	cl->addWidget(btnAdd);
 
 	connect(btnAdd, &QPushButton::clicked, this, [=]() { 
 		gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-			helper->AddEmpty(obj);
+			handler->Add();
 
 			class Undo : public QUndoCommand
 			{
 			public:
-				Undo(const QString& name, void* obj, const FProperty* prop, int arrSize) : QUndoCommand(name)
+				Undo(const QString& name, void* obj, const FProperty* prop, FArrayPropertyHandler* h) : QUndoCommand(name), handler(h)
 				{
-					index = arrSize - 1;
+					index = handler->Size() - 1;
 					property = prop;
 					this->obj = obj;
 				}
@@ -65,23 +68,22 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 
 				void undo() final
 				{
-					auto* helper = (FArrayHelper*)property->typeHelper;
-					helper->Erase(obj, index);
+					handler->Erase(index);
 				}
 
 				void redo() final
 				{
-					auto* helper = (FArrayHelper*)property->typeHelper;
-					helper->AddEmpty(obj);
-					index = helper->Size(obj) - 1;
+					handler->Add();
+					index = handler->Size() - 1;
 				}
 
 			private:
+				FArrayPropertyHandler* handler;
 				int index;
 				const FProperty* property;
 				void* obj;
 			};
-			curUndoCmd = new Undo((property->name + " Add Item").c_str(), obj, property, helper->Size(obj));
+			curUndoCmd = new Undo((property->name + " Add Item").c_str(), obj, property, handler);
 
 			emit(OnValueChanged());
 			UpdateList();
@@ -93,7 +95,7 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 
 void CArrayProperty::Update()
 {
-	if (helper->Size(obj) != editors.Size())
+	if (handler->Size() != editors.Size())
 		UpdateList();
 }
 
@@ -105,23 +107,16 @@ void CArrayProperty::UpdateList()
 	}
 	editors.Clear();
 
-	SizeType size = helper->Size(obj);
-	SizeType data = (SizeType)helper->Data(obj);
+	SizeType size = handler->Size();
+	SizeType data = (SizeType)handler->Data();
 
 	// TODO: fix this, crashes or freezes when updating list.
 
 	for (SizeType i = 0; i < size; i++)
 	{
-		void* ptr = (void*)(data + (i * helper->objSize));
+		void* ptr = (void*)(data + (i * property->templateType[0].size));
 		
-		FProperty prop;
-		prop.type = helper->objType;
-		prop.typeName = typeName;
-		prop.name = FString::ToString(i) + ":";
-		prop.offset = (SizeType)ptr - data;
-		prop.size = helper->objSize;
-
-		IBasePropertyEditor* editor = CPropertyEditorWidget::CreatePropertyEditor(ptr, &prop, content);
+		IBasePropertyEditor* editor = CPropertyEditorWidget::CreatePropertyEditor(ptr, handler->GetTemplateProperty(), content);
 
 		if (editor)
 		{
@@ -141,55 +136,55 @@ void CArrayProperty::UpdateList()
 			editors.Add(editor);
 			connect(removeBtn, &QPushButton::clicked, this, [=]() { 
 				gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-					helper->Erase(obj, i);
+					handler->Erase(i);
 
-					class Undo : public QUndoCommand
-					{
-					public:
-						Undo(const QString& name, void* obj, const FProperty* prop, int arrSize) : QUndoCommand(name)
-						{
-							index = arrSize - 1;
-							property = prop;
-							this->obj = obj;
+					// TODO: reimplement later.
+					//class Undo : public QUndoCommand
+					//{
+					//public:
+					//	Undo(const QString& name, void* obj, const FProperty* prop, int arrSize) : QUndoCommand(name)
+					//	{
+					//		index = arrSize - 1;
+					//		property = prop;
+					//		this->obj = obj;
 
-							auto* helper = (FArrayHelper*)property->typeHelper;
-							data = malloc(helper->objSize);
-							memcpy(data, (void*)((SizeType)helper->Data(obj) + index * helper->objSize), helper->objSize);
-						}
+					//		//auto* helper = (FArrayHelper*)property->typeHelper;
+					//		data = malloc(helper->objSize);
+					//		memcpy(data, (void*)((SizeType)helper->Data(obj) + index * helper->objSize), helper->objSize);
+					//	}
 
-						int id() const override
-						{
-							return 1012;
-						}
+					//	int id() const override
+					//	{
+					//		return 1012;
+					//	}
 
-						bool mergeWith(const QUndoCommand* other) override
-						{
-							(void)other;
-							return false;
-						}
-						virtual ~Undo() { free(data); }
+					//	bool mergeWith(const QUndoCommand* other) override
+					//	{
+					//		return false;
+					//	}
+					//	virtual ~Undo() { free(data); }
 
-						void undo() final
-						{
-							auto* helper = (FArrayHelper*)property->typeHelper;
-							helper->AddEmpty(obj);
-							index = helper->Size(obj) - 1;
-							memcpy((void*)((SizeType)helper->Data(obj) + index * helper->objSize), data, helper->objSize);
-						}
+					//	void undo() final
+					//	{
+					//		auto* helper = (FArrayHelper*)property->typeHelper;
+					//		helper->AddEmpty(obj);
+					//		index = helper->Size(obj) - 1;
+					//		memcpy((void*)((SizeType)helper->Data(obj) + index * helper->objSize), data, helper->objSize);
+					//	}
 
-						void redo() final
-						{
-							auto* helper = (FArrayHelper*)property->typeHelper;
-							helper->Erase(obj, index);
-						}
+					//	void redo() final
+					//	{
+					//		auto* helper = (FArrayHelper*)property->typeHelper;
+					//		helper->Erase(obj, index);
+					//	}
 
-					private:
-						int index;
-						const FProperty* property;
-						void* obj;
-						void* data;
-					};
-					curUndoCmd = new Undo((property->name + " Add Item").c_str(), obj, property, helper->Size(obj));
+					//private:
+					//	int index;
+					//	const FProperty* property;
+					//	void* obj;
+					//	void* data;
+					//};
+					//curUndoCmd = new Undo((property->name + " Add Item").c_str(), obj, property, helper->Size(obj));
 
 					emit(OnValueChanged());
 					UpdateList();

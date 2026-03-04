@@ -743,7 +743,7 @@ void CContentBrowserWidget::ImportAsset()
 	TArray<FAssetClass*> importableClasses;
 	for (CModule* m : CModuleManager::GetModules())
 	{
-		for (FAssetClass* c : m->Assets)
+		/*for (FAssetClass* c : m->Assets)
 		{
 			if (c->ImportableAs().IsEmpty())
 				continue;
@@ -759,7 +759,7 @@ void CContentBrowserWidget::ImportAsset()
 			filter.Erase(filter.last());
 			filter += ");;";
 			importableClasses.Add(c);
-		}
+		}*/
 	}
 
 	filter += "All Files (*.*)";
@@ -776,7 +776,7 @@ void CContentBrowserWidget::ImportAsset()
 	// Figure out what the selected file's type is.
 	for (auto* c : importableClasses)
 	{
-		TArray<FString> exts = c->ImportableAs().Split(';');
+		/*TArray<FString> exts = c->ImportableAs().Split(';');
 
 		for (auto& x : exts)
 		{
@@ -788,7 +788,7 @@ void CContentBrowserWidget::ImportAsset()
 		}
 
 		if (targetClass)
-			break;
+			break;*/
 	}
 
 	if (!targetClass)

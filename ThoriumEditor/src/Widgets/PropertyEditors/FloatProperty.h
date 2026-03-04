@@ -1,10 +1,13 @@
 #pragma once
 
 #include <Util/Core.h>
+#include <Util/Pointer.h>
 #include "Widgets/PropertyEditor.h"
 
 struct FProperty;
 class QDoubleSpinBox;
+class IPropertyHandler;
+class QPushButton;
 
 class CFloatProperty : public IBasePropertyEditor
 {
@@ -27,6 +30,8 @@ private:
 	QDoubleSpinBox* editor;
 	bool bDouble;
 	FString undoName;
+	TUniquePtr<IPropertyHandler> handler;
+	QPushButton* revertBtn = nullptr;
 	union
 	{
 		float* vFloat;

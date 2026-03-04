@@ -1,9 +1,13 @@
 #pragma once
 
+#include <Util/Pointer.h>
 #include "Widgets/PropertyEditor.h"
 #include "Object/Object.h"
+#include "Object/PropertyHandler.h"
 
 class CObjectSelectorWidget;
+class IPropertyHandler;
+class QPushButton;
 
 class CObjectPtrProperty : public IBasePropertyEditor
 {
@@ -15,7 +19,7 @@ public:
 
 	void Update();
 
-	void SetValue(void* value) { this->value = (TObjectPtr<CObject>*)value; Update(); }
+	void SetValue(void* value) { if (handler) { handler->SetValue(value); this->value = (TObjectPtr<CObject>*)handler->GetValue(); } else this->value = (TObjectPtr<CObject>*)value; Update(); }
 	void AllowNull(bool b);
 
 	inline CObjectSelectorWidget* GetSelector() const { return edit; }
@@ -27,6 +31,8 @@ private:
 	void dropEvent(QDropEvent* event) override;
 
 	QUndoCommand* makeUndo(const TObjectPtr<CObject>& oldValue, const TObjectPtr<CObject>& newValue);
+	void SetCurrentValue(const TObjectPtr<CObject>& newValue);
+	TObjectPtr<CObject> GetCurrentValue() const;
 
 private:
 	CObjectSelectorWidget* edit;
@@ -36,5 +42,7 @@ private:
 	QWidget* widget;
 
 	QString undoName;
+	mutable TUniquePtr<IPropertyHandler> handler;
+	QPushButton* revertBtn = nullptr;
 
 };

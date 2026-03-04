@@ -229,7 +229,7 @@ void CModuleDebugger::UpdatePropertyList(CTreeModuleItem* item)
 			curProperties.Add(pWidget);
 		}
 		// Asset Extension
-		if (asset)
+		/*if (asset)
 		{
 			QWidget* pWidget = new QWidget(Properties);
 			QHBoxLayout* pLayout = new QHBoxLayout(pWidget);
@@ -247,8 +247,9 @@ void CModuleDebugger::UpdatePropertyList(CTreeModuleItem* item)
 
 			propertiesLayout->addWidget(pWidget);
 			curProperties.Add(pWidget);
-		}
+		}*/
 
+		if (struc->GetPropertyList())
 		{
 			QLabel* label = new QLabel("Properties:", Properties);
 			label->setMinimumSize({ 0, 30 });
@@ -345,11 +346,115 @@ void CModuleDebugger::UpdatePropertyList(CTreeModuleItem* item)
 				pLayout->addWidget(iWidget);
 			}
 
+			if (p->meta)
+			{
+				CCollapsableWidget* metaWidget = new CCollapsableWidget("MetaData", nullptr, pContent);
+				metaWidget->SetHeaderType(CCollapsableWidget::NESTED_HEADER);
+				pLayout->addWidget(metaWidget);
+
+				QWidget* metaContent = new QWidget(metaWidget);
+				metaWidget->SetWidget(metaContent);
+				QVBoxLayout* metaLayout = new QVBoxLayout(metaContent);
+
+				auto* meta = p->meta;
+				for (int i = 0; i < meta->numGenericFlags; i++)
+				{
+					auto* flag = &meta->genericFlags[i];
+					QHBoxLayout* flagLayout = new QHBoxLayout();
+					QLabel* flagLabel = new QLabel((flag->Key).c_str(), metaContent);
+					QLabel* flagValue = new QLabel((flag->Value).c_str(), metaContent);
+
+					flagLayout->addWidget(flagLabel);
+					flagLayout->addWidget(flagValue);
+					metaLayout->addLayout(flagLayout);
+				}
+			}
+
 			pWidget->SetWidget(pContent);
 			pWidget->SetCollapsed(true);
 
 			propertiesLayout->addWidget(pWidget);
 			curProperties.Add(pWidget);
+		}
+
+		if (clas)
+		{
+			if (clas->GetFunctionList())
+			{
+				QLabel* label = new QLabel("Functions:", Properties);
+				label->setMinimumSize({ 0, 30 });
+				propertiesLayout->addWidget(label);
+
+				QFrame* line = new QFrame(Properties);
+				line->setFrameShadow(QFrame::Sunken);
+				line->setLineWidth(2);
+				line->setFrameShape(QFrame::HLine);
+
+				propertiesLayout->addWidget(line);
+				curProperties.Add(label);
+				curProperties.Add(line);
+			}
+
+			for (const FFunction* func = clas->GetFunctionList(); func != nullptr; func = func->next)
+			{
+				CCollapsableWidget* pWidget = new CCollapsableWidget(func->name.c_str(), nullptr, Properties);
+
+				QFrame* pContent = new QFrame(pWidget);
+				pContent->setProperty("type", QVariant(2));
+				QVBoxLayout* pLayout = new QVBoxLayout(pContent);
+
+				{
+					QHBoxLayout* typeLayout = new QHBoxLayout();
+					QLabel* typeLabel = new QLabel("Function Type: ", pContent);
+					
+					const char* types[] = {
+						"GENERAL",
+						"OUTPUT",
+						"COMMAND",
+						"SERVER_RPC",
+						"CLIENT_RPC",
+						"MULTICAST_RPC",
+					};
+					QLabel* typeValue = new QLabel(types[func->type], pContent);
+
+					typeLayout->addWidget(typeLabel);
+					typeLayout->addWidget(typeValue);
+					pLayout->addLayout(typeLayout);
+				}
+
+				for (int i = 0; i < func->numArguments; i++)
+				{
+					const auto& arg = func->Arguments[i];
+					QHBoxLayout* argLayout = new QHBoxLayout();
+					QLabel* argLabel = new QLabel((FString("Arg ") + FString::ToString(i) + ": " + arg.name).c_str(), pContent);
+
+					const char* types[] = {
+						"STRUCT",
+						"CLASS",
+						"STRING",
+						"ENUM",
+						"ARRAY",
+						"OBJECT PTR",
+						"CLASS PTR",
+						"FLOAT",
+						"DOUBLE",
+						"INT",
+						"UINT",
+						"BOOL",
+					};
+					QLabel* argType = new QLabel((FString("Type: ") + types[arg.type.type]).c_str(), pContent);
+
+					argLayout->addWidget(argLabel);
+					argLayout->addWidget(argType);
+					pLayout->addLayout(argLayout);
+				}
+
+				pWidget->SetWidget(pContent);
+				pWidget->SetCollapsed(true);
+
+				propertiesLayout->addWidget(pWidget);
+				curProperties.Add(pWidget);
+			}
 		}
 	}
 	else if (item->type() == MIT_ENUM)

@@ -21,6 +21,8 @@
 #include "Widgets/RenderWidget.h"
 #include "Widgets/ContentBrowser.h"
 #include "Widgets/ViewportWidget.h"
+#include "Widgets/FileDialogs.h"
+#include "Widgets/ClassSelectorDialog.h"
 
 #include "Tools/ObjectTool.h"
 #include "Tools/ModellingTool.h"
@@ -126,9 +128,9 @@ void CEditorWindow::SetupUi()
 	menuHelp = new QMenu("Help", menuBar); menuBar->addMenu(menuHelp);
 
 	menuFile->addSection("Scene");
-	menuFile->addAction("New Scene");
+	menuFile->addAction("New Scene", this, &CEditorWindow::NewScene);
 	menuFile->addAction("Open Scene");
-	actSaveScene = menuFile->addAction(QIcon(":/icons/floppy.svg"), "Save");
+	actSaveScene = menuFile->addAction(QIcon(":/icons/floppy.svg"), "Save", QKeySequence(Qt::CTRL | Qt::Key_S), this, &CEditorWindow::SaveScene);
 	menuFile->addAction("Save As");
 
 	menuFile->addSection("Project");
@@ -138,7 +140,10 @@ void CEditorWindow::SetupUi()
 
 	menuFile->addSection("Build");
 	menuFile->addAction("Build All");
-	menuFile->addAction("Build Lighting");
+	menuFile->addAction("Build Lighting", this, [=]() { 
+		if (SaveScene())
+			gEditorEngine->PushEvent(EventExec_PreUpdate, []() { gEditorEngine->BakeLighting(); });
+	});
 	menuFile->addAction("Build Cubemaps");
 	menuFile->addAction("Package Engine Content");
 
@@ -446,6 +451,7 @@ void CEditorWindow::levelChanged()
 {
 	sceneUndoStack->clear();
 
+	propertiesWidget->SetObject(nullptr);
 	updateTitle();
 }
 
@@ -514,7 +520,7 @@ void CEditorWindow::mousePick(const FRay& ray, bool bIsRightMouse)
 		else
 			gEditorEngine->ClearSelection();
 	}
-	else
+	else if (bHit)
 	{
 		CEntity* ent = nullptr;
 
@@ -642,16 +648,111 @@ bool CEditorWindow::TrySaveScene()
 	return true;
 }
 
-void CEditorWindow::SaveScene()
+bool CEditorWindow::SaveScene()
 {
+	if (!gWorld->GetScene()->File())
+	{
+		//ThoriumEditor::SaveFile("saveEditorScene", (FAssetClass*)CScene::StaticClass());
+		CSaveFileDialog dialog(this);
+		if (!dialog.exec())
+			return false;
+
+		if (!CAssetManager::RegisterNewAsset(gWorld->GetScene(), dialog.Path(), dialog.Mod()))
+			return false;
+	}
+
+	gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
+		gWorld->Save();
+
+		CFStream sdkStream = gWorld->GetScene()->File()->GetSdkStream(".meta", "wb");
+		if (sdkStream.IsOpen())
+		{
+			FVector camPos = gEditorEngine->viewportCams[0]->position;
+			FQuaternion camRot = gEditorEngine->viewportCams[0]->rotation;
+
+			sdkStream << &camPos << &camRot;
+			sdkStream.Close();
+		}
+	});
+
+	sceneUndoStack->setClean();
 	emit onSaveScene();
+	return true;
+}
+
+void CEditorWindow::SaveSceneAs()
+{
+	// TODO: Implement SaveSceneAs
+}
+
+void CEditorWindow::OpenScene()
+{
+	if (!TrySaveScene())
+		return;
+
+	COpenFileDialog dialog((FAssetClass*)CScene::StaticClass(), this);
+	if (!dialog.exec())
+		return;
+
+	if (dialog.File())
+	{
+		FFile* file = dialog.File();
+		gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
+			gEditorEngine->LoadWorld(file->Path());
+		});
+	}
+}
+
+void CEditorWindow::NewScene()
+{
+	if (!TrySaveScene())
+		return;
+	
+	gEditorEngine->PushEvent(EventExec_PreUpdate, []() {
+		gEditorEngine->LoadWorld();
+	});
+}
+
+void CEditorWindow::CreateEntityPopup(FClass* base, const FString& name, const FTransform& transform, std::function<void(CEntity*)> createCallback)
+{
+	CClassSelectorDialog dialog(this);
+	if (!base)
+		base = CEntity::StaticClass();
+
+	dialog.SetFilterClass(base);
+	if (dialog.exec())
+	{
+		FClass* type = dialog.GetSelectedClass();
+
+		//CEntity* ent = Cast<CEntity>(type->Instantiate());
+		gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
+			CEntity* ent = gWorld->CreateEntity(type, name);
+			ent->SetPosition(transform.position);
+			ent->SetRotation(transform.rotation);
+			ent->SetScale(transform.scale);
+			if (createCallback)
+				createCallback(ent);
+		});
+	}
+}
+
+void CEditorWindow::CreateEntity(FClass* type, const FString& name, const FTransform& transform, std::function<void(CEntity*)> createCallback)
+{
+	gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
+		CEntity* ent = gWorld->CreateEntity(type, name);
+		ent->SetPosition(transform.position);
+		ent->SetRotation(transform.rotation);
+		ent->SetScale(transform.scale);
+		if (createCallback)
+			createCallback(ent);
+	});
 }
 
 int CEditorWindow::ExecSaveMessageBox()
 {
 	QMessageBox msg;
 	msg.setText("Do you want to save before closing?");
-	FString name = "unsaved scene";
+	FString name = "new scene";
 	if (gWorld->GetScene())
 		name = gWorld->GetScene()->File()->Path();
 

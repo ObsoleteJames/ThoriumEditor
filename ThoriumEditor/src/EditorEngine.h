@@ -50,6 +50,8 @@ public:
 	bool IsObjectSelected(CObject* obj);
 	void ClearSelection();
 
+	void BakeLighting();
+
 private:
 	void OnLevelChange();
 

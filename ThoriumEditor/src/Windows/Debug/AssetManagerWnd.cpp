@@ -285,13 +285,13 @@ static void InspectAssetInstance(CAsset* asset, QVBoxLayout* propertiesLayout, Q
 	// Scene-specific inspection
 	if (auto* scene = Cast<CScene>(asset))
 	{
-		AddLabelPair(propertiesLayout, parentFrame, "Gravity", QString::number(scene->gravity));
+		/*AddLabelPair(propertiesLayout, parentFrame, "Gravity", QString::number(scene->gravity));
 		if (scene->gamemodeClass.Get())
 		{
 			FClass* gm = scene->gamemodeClass.Get();
 			if (gm)
 				AddLabelPair(propertiesLayout, parentFrame, "GameMode", QString::fromUtf8(gm->cppName.c_str()));
-		}
+		}*/
 	}
 }
 

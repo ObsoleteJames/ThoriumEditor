@@ -10,6 +10,7 @@
 #include "Game/Events.h"
 #include "Assets/Scene.h"
 #include "EditorConfig.h"
+#include "System.h"
 
 #include "Rendering/Renderer.h"
 #include "Rendering/RenderScene.h"
@@ -32,6 +33,10 @@ void CEditorEngine::Init()
 	gIsClient = true;
 
 	CModuleManager::RegisterModule(&GetModule_ThoriumEditorQt());
+
+	// Create default implementations for physics and audio.
+	CreatePhysicsApi(CModuleManager::FindClass("CJoltPhysicsApi"));
+	CreateAudioInterface(CModuleManager::FindClass("CSdlAudioInterface"));
 
 	viewportCams[0] = new CCameraProxy();
 	viewportCams[1] = new CCameraProxy();
@@ -146,6 +151,9 @@ int CEditorEngine::Run()
 			for (auto& obj : selectedObjects)
 			{
 				CEntity* ent = Cast<CEntity>(obj);
+				if (!ent)
+					continue;
+
 				FColor boxColor = evBoundBoxColor.GetValue().AsColor();
 				FColor activeColor = evBoundBoxActiveColor.GetValue().AsColor();
 
@@ -279,6 +287,21 @@ void CEditorEngine::ClearSelection()
 	emit gEngineThread->onSelectionChanged();
 }
 
+void CEditorEngine::BakeLighting()
+{
+	if (!gWorld->GetScene())
+		return;
+
+	FString cmd = SSystem::GetEnginePath() + "/bin/win64/LightBaker.exe -scene \"" + gWorld->GetScene()->File()->Path() + "\"";
+	if (bProjectLoaded)
+		cmd += " -project \"" + activeGame.mod->Path() + "/../\"";
+
+	int r = SSystem::Execute(cmd);
+	QThread::msleep(100); // wait for the process to release the file lock on the light data.
+	if (r == 0)
+		gWorld->LoadLightData();
+}
+
 void CEditorEngine::OnLevelChange()
 {
 	if (!bIsPlaying)
@@ -307,6 +330,9 @@ void CEditorEngine::OnLevelChange()
 				//camController->SetCamera(editorCamera);
 			}
 		}
+
+		activeObject = nullptr;
+		selectedObjects.Clear();
 	}
 
 	emit gEngineThread->onLevelChanged();

@@ -215,7 +215,8 @@ void CPropertiesWidget::AddComponent()
 		if (!newComp)
 			return;
 
-		//newComp->bUserCreated = true;
+		// Set the component as user created so that it can be deleted in the editor.
+		*(bool*)(((SizeType)newComp) + CEntityComponent::__private_bUserCreated_offset()) = true;
 
 		CSceneComponent* sceneComp = Cast<CSceneComponent>(newComp);
 		if (sceneComp)

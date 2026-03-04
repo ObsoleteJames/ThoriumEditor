@@ -17,12 +17,14 @@ public:
 	CSaveFileDialog(QWidget* parent = nullptr);
 
 	inline FString Path() const { return path; }
+	inline FString Mod() const { return mod; }
 
 private:
 	void Save();
 
 private:
 	FString path;
+	FString mod;
 	CContentBrowserWidget* assetBrowser;
 	QLineEdit* nameEdit;
 

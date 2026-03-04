@@ -14,6 +14,7 @@
 #include "PropertyEditors/QuatProperty.h"
 #include "EditorWindow.h"
 
+#include "Object/PropertyHandler.h"
 #include "Game/Components/SceneComponent.h"
 #include "Game/Entity.h"
 
@@ -29,6 +30,25 @@ QUndoCommand* IBasePropertyEditor::ProvideUndoCmd()
 	auto* cmd = curUndoCmd;
 	curUndoCmd = nullptr;
 	return cmd;
+}
+
+void IBasePropertyEditor::SetDefaultObject(CObject* obj)
+{
+	cdo = obj;
+}
+
+QPushButton* IBasePropertyEditor::AddRevertBtn(IPropertyHandler* handler)
+{
+	QPushButton* btn = new QPushButton(QIcon(":/icons/field_revert.svg"), "", this);
+	btn->setToolTip("Revert to default value");
+	btn->setProperty("type", QVariant("clear"));
+
+	QSizePolicy sp = btn->sizePolicy();
+	sp.setRetainSizeWhenHidden(true);
+	btn->setSizePolicy(sp);
+	btn->setVisible(false);
+	btn->setMaximumSize(20, 20);
+	return btn;
 }
 
 CPropertyEditorWidget::CPropertyEditorWidget(QWidget* parent /*= nullptr*/) : QWidget(parent)
@@ -69,7 +89,7 @@ IBasePropertyEditor* CPropertyEditorWidget::CreatePropertyEditor(void* ptr, cons
 	case EVT_STRUCT:
 	{
 		if (p->typeName == "FVector")
-			return new CVectorProperty((FVector*)ptr, p->name, parent);
+			return new CVectorProperty((FVector*)((SizeType)ptr + p->offset), p->name, parent);
 
 		return new CStructProperty(ptr, p, parent);
 	}
@@ -155,18 +175,18 @@ void CPropertyEditorWidget::RebuildUI()
 				if (p->meta && p->meta->HasFlag("ExposeProperties") && p->type == EVT_OBJECT_PTR)
 				{
 					TObjectPtr<CObject>& target = *(TObjectPtr<CObject>*)((SizeType)&*ent + p->offset);
+					FClass* type = target->GetClass();
+					CObject* cdo = type->GetDefaultObject();
 					if (target)
-						AddProperties(target->GetClass(), target, p->name);
+						AddProperties(target->GetClass(), target, cdo, false, p->name);
 				}
 			}
 		}
-
-		//for (auto& comp : ent->GetAllComponents())
-		//	if (!comp.second->IsUserCreated() && comp.second != ent->RootComponent())
-		//		AddProperties(comp.second->GetClass(), comp.second, comp.second->GetClass()->GetName());
 	}
-
-	AddProperties(targetObject->GetClass(), targetObject);
+	
+	FClass* type = targetObject->GetClass();
+	CObject* cdo = type->GetDefaultObject();
+	AddProperties(type, targetObject, cdo);
 }
 
 void CPropertyEditorWidget::Update()
@@ -195,14 +215,23 @@ CCollapsableWidget* CPropertyEditorWidget::GetCategoryWidget(const FString& cate
 	return r;
 }
 
-void CPropertyEditorWidget::AddProperties(FClass* type, CObject* obj, const FString& overrideCat)
+void CPropertyEditorWidget::AddProperties(FStruct* type, void* obj, CObject* cdo, bool bRecursive, const FString& overrideCat)
 {
 	for (const FProperty* p = type->GetPropertyList(); p != nullptr; p = p->next)
 	{
 		if ((p->flags & VTAG_EDITOR_EDITABLE) == 0 && (p->flags & VTAG_EDITOR_VISIBLE) == 0)
 			continue;
 
-		bool readOnly = p->flags & VTAG_EDITOR_VISIBLE;
+		// This is no longer needed as IPropertyHandler takes care of this now.
+		//void* ptr = (void*)((SizeType)obj + p->offset);
+
+		if (p->meta && p->meta->HasFlag("Inline") && p->type == EVT_STRUCT)
+		{
+			AddProperties(CModuleManager::FindStruct(p->typeName), obj);
+			continue;
+		}
+
+		bool readOnly = (p->flags & VTAG_EDITOR_EDITABLE) == 0;
 
 		FString catName = type->GetName();
 		if (p->meta && !p->meta->category.IsEmpty())
@@ -212,40 +241,31 @@ void CPropertyEditorWidget::AddProperties(FClass* type, CObject* obj, const FStr
 			catName = overrideCat;
 		
 		CCollapsableWidget* cat = GetCategoryWidget(catName);
-
-		void* ptr = (void*)((SizeType)obj + p->offset);
-
-		IBasePropertyEditor* editor = CreatePropertyEditor(ptr, p, cat);
+		IBasePropertyEditor* editor = CreatePropertyEditor(obj, p, cat);
 
 		if (editor)
 		{
 			if (readOnly)
 				editor->setEnabled(false);
 
-			//properties.Add(editor);
-			AddProperty(editor, obj, p);
+			if (type->IsClass())
+			{
+				editor->SetDefaultObject(cdo);
+				editor->Update();
+				AddProperty(editor, (CObject*)obj, p);
+			}
 
 			cat->Widget()->layout()->addWidget(editor);
-
-			//connect(editor, &IBasePropertyEditor::OnValueChanged, this, [=]() {
-			//	if (p->meta)
-			//	{
-			//		const FFunction* f = type->GetFunction(p->meta->FlagValue("OnEditFunc"));
-			//		if (f)
-			//		{
-			//			gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-			//				FStack s(0);
-			//				f->execFunc(obj, s);
-			//				//p->meta->onEditFunc(obj, s);
-			//			});
-			//		}
-			//	}
-			//});
 		}
 	}
 
-	if (type->GetBaseClass())
-		AddProperties(type->GetBaseClass(), obj, overrideCat);
+	if (type->IsClass() && bRecursive)
+	{
+		FClass* classType = (FClass*)type;
+
+		if (classType->GetBaseClass())
+			AddProperties(classType->GetBaseClass(), obj, cdo, true, overrideCat);
+	}
 }
 
 void CPropertyEditorWidget::AddProperty(IBasePropertyEditor* editor, CObject* obj, const FProperty* field)

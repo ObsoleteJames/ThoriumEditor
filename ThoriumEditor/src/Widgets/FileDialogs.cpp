@@ -63,6 +63,7 @@ void CSaveFileDialog::Save()
 		path += "\\";
 	
 	path += nameEdit->text().toStdString();
+	mod = assetBrowser->GetMod();
 
 	done(1);
 	deleteLater();

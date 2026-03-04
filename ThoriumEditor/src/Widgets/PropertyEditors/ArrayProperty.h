@@ -1,10 +1,11 @@
 #pragma once
 
 #include <Util/Core.h>
+#include <Util/Pointer.h>
 #include "Widgets/PropertyEditor.h"
 
 struct FProperty;
-struct FArrayHelper;
+class FArrayPropertyHandler;
 
 class CArrayProperty : public IBasePropertyEditor
 {
@@ -20,7 +21,9 @@ private:
 
 private:
 	void* obj;
-	FArrayHelper* helper;
+	//FArrayHelper* helper;
+	TUniquePtr<FArrayPropertyHandler> handler;
+
 	QWidget* content;
 	TArray<IBasePropertyEditor*> editors;
 	FString typeName;

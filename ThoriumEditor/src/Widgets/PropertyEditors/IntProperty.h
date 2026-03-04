@@ -1,10 +1,14 @@
 #pragma once
 
 #include <Util/Core.h>
+#include <Util/Pointer.h>
 #include "Widgets/PropertyEditor.h"
+#include "Object/PropertyHandler.h"
 
 struct FProperty;
 class QSpinBox;
+class IPropertyHandler;
+class QPushButton;
 
 class CIntProperty : public IBasePropertyEditor
 {
@@ -16,7 +20,7 @@ public:
 
 	void Update();
 
-	void SetValue(int* value) { this->value = value; Update(); }
+	void SetValue(int* value) { if (handler) handler->SetValue(value); else this->value = value; Update(); }
 
 public Q_SLOTS:
 	void onValueChanged(int);
@@ -27,6 +31,8 @@ private:
 	uint8 byteSize = 4;
 	int* value;
 	FString undoName;
+	TUniquePtr<IPropertyHandler> handler;
+	QPushButton* revertBtn = nullptr;
 
 };
 
@@ -40,7 +46,7 @@ public:
 
 	void Update();
 
-	void SetValue(uint* value) { this->value = value; Update(); }
+	void SetValue(uint* value) { if (handler) handler->SetValue(value); else this->value = value; Update(); }
 
 public Q_SLOTS:
 	void onValueChanged(int);
@@ -51,5 +57,7 @@ private:
 	uint8 byteSize = 4;
 	uint* value;
 	FString undoName;
+	TUniquePtr<IPropertyHandler> handler;
+	QPushButton* revertBtn = nullptr;
 
 };

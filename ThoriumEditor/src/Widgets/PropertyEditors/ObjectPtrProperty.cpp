@@ -6,6 +6,7 @@
 #include "Editor.h"
 #include "Console.h"
 #include "EditorEngine.h"
+#include "Object/PropertyHandler.h"
 
 #include <QMimeData>
 #include <QBoxLayout>
@@ -18,7 +19,15 @@
 
 CObjectPtrProperty::CObjectPtrProperty(void* v, const FProperty* property, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent), value((TObjectPtr<CObject>*)v)
 {
-	_class = CModuleManager::FindClass(property->typeName);
+	this->property = property;
+	handler = property->GetHandler(v);
+	value = (TObjectPtr<CObject>*)handler->GetValue();
+
+	if (property->typeName == "TObjectPtr")
+		_class = CModuleManager::FindClass(property->templateType[0].typeName);
+	else
+		_class = CModuleManager::FindClass(property->typeName);
+
 	if (_class)
 		bIsAsset = _class->CanCast(CAsset::StaticClass());
 
@@ -43,6 +52,8 @@ void CObjectPtrProperty::Init(const QString& name)
 
 	layout->addWidget(label);
 	layout->addStretch(0);
+
+	revertBtn = AddRevertBtn(handler);
 
 	if (bIsAsset)
 	{
@@ -76,12 +87,12 @@ void CObjectPtrProperty::Init(const QString& name)
 				FFile* f = dialog.File();
 				gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
 					TObjectPtr<CAsset> obj = CAssetManager::GetAsset((FAssetClass*)_class, f->Path());
-					TObjectPtr<CObject> oldValue = *value;
+					TObjectPtr<CObject> oldValue = GetCurrentValue();
 					TObjectPtr<CObject> newValue = &*obj;
 					if (oldValue == newValue)
 						return;
 					curUndoCmd = makeUndo(oldValue, newValue);
-					*value = newValue;
+					SetCurrentValue(newValue);
 					edit->SetObject(obj);
 					emit(OnValueChanged());
 				});
@@ -96,12 +107,12 @@ void CObjectPtrProperty::Init(const QString& name)
 			//}
 			//CAsset* obj = CastChecked<CAsset>(edit->GetObject());
 			gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-				TObjectPtr<CObject> oldValue = *value;
+				TObjectPtr<CObject> oldValue = GetCurrentValue();
 				TObjectPtr<CObject> newValue = &*CAssetManager::GetAsset((FAssetClass*)_class, edit->GetObjectId());
 				if (oldValue == newValue)
 					return;
 				curUndoCmd = makeUndo(oldValue, newValue);
-				*value = newValue;
+				SetCurrentValue(newValue);
 				emit(OnValueChanged());
 			});
 		});
@@ -117,16 +128,34 @@ void CObjectPtrProperty::Init(const QString& name)
 		connect(edit, &CObjectSelectorWidget::ObjectChanged, this, [=]() {
 			//CAsset* obj = CastChecked<CAsset>(edit->GetObject());
 			gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-				TObjectPtr<CObject> oldValue = *value;
+				TObjectPtr<CObject> oldValue = GetCurrentValue();
 				TObjectPtr<CObject> newValue = CObjectManager::FindObject(edit->GetObjectId());
 				if (oldValue == newValue)
 					return;
 				curUndoCmd = makeUndo(oldValue, newValue);
-				*value = newValue;
+				SetCurrentValue(newValue);
 				emit(OnValueChanged());
 			});
 		});
 	}
+
+	layout->addWidget(revertBtn);
+	revertBtn->setVisible(false);
+
+	connect(revertBtn, &QPushButton::clicked, this, [=]() {
+		if (!cdo || !this->property || !handler)
+			return;
+
+		TObjectPtr<CObject> oldValue = GetCurrentValue();
+		TObjectPtr<CObject> newValue = *(TObjectPtr<CObject>*)((SizeType)cdo + this->property->offset);
+		if (oldValue == newValue)
+			return;
+
+		curUndoCmd = makeUndo(oldValue, newValue);
+		SetCurrentValue(newValue);
+		emit(OnValueChanged());
+		Update();
+	});
 
 	Update();
 }
@@ -170,7 +199,7 @@ QUndoCommand* CObjectPtrProperty::makeUndo(const TObjectPtr<CObject>& oldValue, 
 		TObjectPtr<CObject> newValue;
 	};
 
-	return new Undo(undoName, value, oldValue, newValue);
+	return new Undo(undoName, handler ? (TObjectPtr<CObject>*)handler->GetValue() : value, oldValue, newValue);
 }
 
 void CObjectPtrProperty::dragEnterEvent(QDragEnterEvent* event)
@@ -186,7 +215,8 @@ void CObjectPtrProperty::dragEnterEvent(QDragEnterEvent* event)
 	if (item && item->type() == EItemTypes_AssetFile)
 	{
 		FFile* file = (FFile*)item->data(257).toULongLong();
-		if (file && file->Extension() == ToWString(((FAssetClass*)_class)->GetExtension()))
+		FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
+		if (file && type && _class->CanCast(type))
 		{
 			event->acceptProposedAction();
 		}
@@ -207,17 +237,18 @@ void CObjectPtrProperty::dropEvent(QDropEvent* event)
 	if (item && item->type() == EItemTypes_AssetFile)
 	{
 		FFile* file = (FFile*)item->data(257).toULongLong();
-		if (file && file->Extension() == ToWString(((FAssetClass*)_class)->GetExtension()))
+		FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
+		if (file && type && _class->CanCast(type))
 		{
 			event->acceptProposedAction();
 			gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
 				TObjectPtr<CAsset> obj = CAssetManager::GetAsset((FAssetClass*)_class, file->Path());
-				TObjectPtr<CObject> oldValue = *value;
+				TObjectPtr<CObject> oldValue = GetCurrentValue();
 				TObjectPtr<CObject> newValue = &*obj;
 				if (oldValue == newValue)
 					return;
 				curUndoCmd = makeUndo(oldValue, newValue);
-				*value = newValue;
+				SetCurrentValue(newValue);
 				edit->SetObject(obj);
 				emit(OnValueChanged());
 			});
@@ -227,18 +258,52 @@ void CObjectPtrProperty::dropEvent(QDropEvent* event)
 
 void CObjectPtrProperty::Update()
 {
+	if (handler)
+		value = (TObjectPtr<CObject>*)handler->GetValue();
+
 	if (!value)
 		return;
 
-	CObject* obj = (*value);
+	CObject* obj = GetCurrentValue();
 	CObjectSelectorWidget* edit = (CObjectSelectorWidget*)widget;
 	if (obj && obj->Id() != edit->GetObjectId())
 		edit->SetObject(obj);
 	else if (!obj)
 		edit->SetObject(nullptr);
+
+	if (cdo && this->property && handler && revertBtn)
+	{
+		bool b = handler->Equals((void*)((SizeType)cdo + this->property->offset));
+		revertBtn->setVisible(!b);
+	}
 }
 
 void CObjectPtrProperty::AllowNull(bool b)
 {
 	edit->bAllowNull = b;
+}
+
+TObjectPtr<CObject> CObjectPtrProperty::GetCurrentValue() const
+{
+	if (handler)
+		return *(TObjectPtr<CObject>*)handler->GetValue();
+
+	if (!value)
+		return nullptr;
+
+	return *value;
+}
+
+void CObjectPtrProperty::SetCurrentValue(const TObjectPtr<CObject>& newValue)
+{
+	if (handler)
+	{
+		auto copy = newValue;
+		handler->SetValue(&copy);
+		value = (TObjectPtr<CObject>*)handler->GetValue();
+		return;
+	}
+
+	if (value)
+		*value = newValue;
 }

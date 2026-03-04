@@ -10,6 +10,9 @@ class QUndoStack;
 class QTableView;
 class QStandardItemModel;
 class QVBoxLayout;
+class CObjectPtrProperty;
+class QComboBox;
+class QCheckBox;
 
 class CMaterialEditor : public CToolsWindow
 {
@@ -32,6 +35,12 @@ public:
 
 private:
 	void OpenMaterial();
+	void SaveMaterial();
+	bool TrySaveMaterial();
+
+	int ExecSavePopup();
+
+	void RevertChanges();
 
 	void UpdateProperties();
 
@@ -40,6 +49,8 @@ private:
 	// Rendering
 	void DoRender();
 	void SwapBuffers();
+
+	QWidget* CreateEditorLayout(const QString& name, QWidget* edit);
 
 private:
 	TObjectPtr<CWorld> world;
@@ -59,6 +70,15 @@ private:
 
 	QWidget* settingsWidget;
 	QVBoxLayout* settingsLayout;
+
+	QVBoxLayout* contentLayout;
+
+	CObjectPtrProperty* shaderEdit;
+	QComboBox* renderPassCombo;
+	QCheckBox* forceTransparentEdit;
+	QCheckBox* receiveShadowsEdit;
+	QCheckBox* castShadowsEdit;
+	QCheckBox* depthTestEdit;
 
 	ads::CDockWidget* propertiesDock = nullptr;
 	ads::CDockWidget* settingsDock = nullptr;

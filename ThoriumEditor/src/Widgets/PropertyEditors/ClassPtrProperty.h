@@ -1,7 +1,9 @@
 #pragma once
 
+#include <Util/Pointer.h>
 #include "Widgets/PropertyEditor.h"
 #include "Object/Object.h"
+#include "Object/PropertyHandler.h"
 
 class CClassSelectorWidget;
 
@@ -15,7 +17,7 @@ public:
 
 	void Update();
 
-	void SetValue(void* value) { this->value = (FClass**)value; Update(); }
+	void SetValue(void* value) { if (handler) handler->SetValue(value); Update(); }
 	
 	inline CClassSelectorWidget* GetSelector() const { return edit; }
 
@@ -24,8 +26,9 @@ private:
 
 private:
 	CClassSelectorWidget* edit;
-	FClass** value;
 	FClass* filter;
 	QWidget* widget;
 
+	TUniquePtr<IPropertyHandler> handler;
+	QPushButton* revertBtn;
 };

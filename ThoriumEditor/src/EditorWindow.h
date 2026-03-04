@@ -56,7 +56,13 @@ public:
 	void DoEntityContextMenu(CEntity* ent, const QPoint& pos);
 
 	bool TrySaveScene();
-	void SaveScene();
+	bool SaveScene();
+	void SaveSceneAs();
+	void OpenScene();
+	void NewScene();
+
+	void CreateEntityPopup(FClass* base = nullptr, const FString& name = FString(), const FTransform& transform = FTransform(), std::function<void(CEntity*)> createCallback = nullptr);
+	void CreateEntity(FClass* type, const FString& name = FString(), const FTransform& transform = FTransform(), std::function<void(CEntity*)> createCallback = nullptr);
 
 	static int ExecSaveMessageBox();
 	static void LoadStyleSheet();

@@ -5,6 +5,16 @@
 
 #include "Game/Events.h"
 
+#include "Widgets/PropertyEditors/ArrayProperty.h"
+#include "Widgets/PropertyEditors/IntProperty.h"
+#include "Widgets/PropertyEditors/FloatProperty.h"
+#include "Widgets/PropertyEditors/BoolProperty.h"
+#include "Widgets/PropertyEditors/EnumProperty.h"
+#include "Widgets/PropertyEditors/StringProperty.h"
+#include "Widgets/PropertyEditors/StructProperty.h"
+#include "Widgets/PropertyEditors/ObjectPtrProperty.h"
+#include "Widgets/PropertyEditors/VectorProperty.h"
+
 #include "Widgets/ContentBrowser.h"
 #include "Widgets/ViewportWidget.h"
 #include "Widgets/FileDialogs.h"
@@ -17,6 +27,10 @@
 #include <QScrollArea>
 #include <QLabel>
 #include <QMenuBar>
+#include <QThread>
+#include <QComboBox>
+#include <QCheckBox>
+#include <QMessageBox>
 
 SDK_REGISTER_WINDOW(CMaterialEditor, "Material Editor", "Tools", NULL);
 
@@ -47,6 +61,9 @@ CMaterialEditor::~CMaterialEditor()
 
 	world->Delete();
 	world = nullptr;
+
+	material = nullptr;
+	modelComp = nullptr;
 }
 
 void CMaterialEditor::SetupUi()
@@ -63,7 +80,7 @@ void CMaterialEditor::SetupUi()
 
 	menuFile->addAction("New", this, &CMaterialEditor::NewMaterial);
 	menuFile->addAction("Open", this, &CMaterialEditor::OpenMaterial);
-	menuFile->addAction("Save");
+	menuFile->addAction("Save", this, &CMaterialEditor::SaveMaterial);
 	menuFile->addAction("Save As");
 	menuFile->addSeparator();
 	menuFile->addAction("Close", this, [this]() { this->close(); });
@@ -101,16 +118,37 @@ void CMaterialEditor::SetupUi()
 		propertiesWidget = new QWidget(this);
 		propertiesLayout = new QVBoxLayout(propertiesWidget);
 		propertiesWidget->setLayout(propertiesLayout);
+		propertiesLayout->setSpacing(0);
 		//propScroll->setWidget(propertiesWidget);
 
-		QLabel* infoLabel = new QLabel("No material selected", propertiesWidget);
-		propertiesLayout->addWidget(infoLabel);
+		//QLabel* infoLabel = new QLabel("No material selected", propertiesWidget);
+		//propertiesLayout->addWidget(infoLabel);
+
+		shaderEdit = new CObjectPtrProperty("Shader", nullptr, CShaderSource::StaticClass(), this);
+		shaderEdit->AllowNull(false);
+		shaderEdit->setMaximumHeight(42);
+		propertiesLayout->addWidget(shaderEdit);
+
+		connect(shaderEdit, &CObjectPtrProperty::OnValueChanged, this, [=]() { gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() { material->Validate(); }); UpdateProperties(); });
 
 		propertiesDock = new ads::CDockWidget("Properties", this);
 		propertiesDock->setObjectName("materialeditor_properties_dockwidget");
 		propertiesDock->setWidget(propertiesWidget);
 		dockmanager->addDockWidget(ads::LeftDockWidgetArea, propertiesDock);
 		propertiesDock->setFeature(ads::CDockWidget::DockWidgetClosable, false);
+
+		QScrollArea* scrollArea = new QScrollArea(this);
+		scrollArea->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+		scrollArea->setWidgetResizable(true);
+		scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		propertiesLayout->addWidget(scrollArea);
+
+		QWidget* scrollWidget = new QWidget(this);
+		contentLayout = new QVBoxLayout(scrollWidget);
+		scrollWidget->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum));
+		contentLayout->setContentsMargins(0, 0, 0, 0);
+		contentLayout->setSpacing(0);
+		scrollArea->setWidget(scrollWidget);
 	}
 
 	// Shader Settins
@@ -124,6 +162,44 @@ void CMaterialEditor::SetupUi()
 		settingsDock->setWidget(settingsWidget);
 		dockmanager->addDockWidget(ads::CenterDockWidgetArea, settingsDock, propertiesDock->dockAreaWidget());
 		settingsDock->setFeature(ads::CDockWidget::DockWidgetClosable, false);
+
+		QScrollArea* scrollArea = new QScrollArea(this);
+		scrollArea->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+		scrollArea->setWidgetResizable(true);
+		scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		settingsLayout->addWidget(scrollArea);
+
+		QWidget* scrollWidget = new QWidget(this);
+		auto* layout = new QVBoxLayout(scrollWidget);
+		scrollWidget->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum));
+		//layout->setContentsMargins(0, 0, 0, 0);
+		//layout->setSpacing(0);
+		scrollArea->setWidget(scrollWidget);
+
+		renderPassCombo = new QComboBox(this);
+		renderPassCombo->addItem("Deffered");
+		renderPassCombo->addItem("Opaque Deffered, Transparent Forward");
+		renderPassCombo->addItem("Forward");
+
+		layout->addWidget(CreateEditorLayout("Render Pass", renderPassCombo));
+
+		forceTransparentEdit = new QCheckBox(this);
+		layout->addWidget(CreateEditorLayout("Force Transparent Pass", forceTransparentEdit));
+
+		receiveShadowsEdit = new QCheckBox(this);
+		layout->addWidget(CreateEditorLayout("Receive Shadows", receiveShadowsEdit));
+
+		castShadowsEdit = new QCheckBox(this);
+		layout->addWidget(CreateEditorLayout("Cast Shadows", castShadowsEdit));
+
+		depthTestEdit = new QCheckBox(this);
+		layout->addWidget(CreateEditorLayout("Depth Test", depthTestEdit));
+
+		connect(renderPassCombo, &QComboBox::currentTextChanged, this, [=]() { gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() { material->preferredRenderPass = renderPassCombo->currentIndex(); }); });
+		connect(forceTransparentEdit, &QCheckBox::toggled, this, [=]() { gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() { material->bForceTransparentPass = forceTransparentEdit->isChecked(); }); });
+		connect(receiveShadowsEdit, &QCheckBox::toggled, this, [=]() { gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() { material->bReceiveShadows = receiveShadowsEdit->isChecked(); }); });
+		connect(castShadowsEdit, &QCheckBox::toggled, this, [=]() { gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() { material->bCastShadows = castShadowsEdit->isChecked(); }); });
+		connect(depthTestEdit, &QCheckBox::toggled, this, [=]() { gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() { material->bDepthTest = depthTestEdit->isChecked(); }); });
 	}
 
 	propertiesDock->setAsCurrentTab();
@@ -172,10 +248,27 @@ void CMaterialEditor::SwapBuffers()
 		viewport->GetSwapChain()->Present(0, 0);
 }
 
+QWidget* CMaterialEditor::CreateEditorLayout(const QString& name, QWidget* edit)
+{
+	QLabel* lbl = new QLabel(name, this);
+
+	QWidget* container = new QWidget(this);
+	auto* layout = new QHBoxLayout();
+	container->setLayout(layout);
+
+	layout->addWidget(lbl);
+	layout->addStretch();
+	layout->addWidget(edit);
+	return container;
+}
+
 bool CMaterialEditor::Shutdown()
 {
 	if (!undoStack->isClean())
-		return false;
+	{
+		if (!TrySaveMaterial())
+			return false;
+	}
 
 	SaveState();
 	return true;
@@ -206,9 +299,11 @@ void CMaterialEditor::NewMaterial()
 {
 	if (material && !undoStack->isClean())
 	{
-		// save material.
-		return;
+		if (!TrySaveMaterial());
+			return;
 	}
+
+	undoStack->clear();
 
 	material = CreateObject<CMaterial>();
 	material->SetShader("Simple");
@@ -224,24 +319,93 @@ void CMaterialEditor::OpenMaterial()
 	}
 }
 
+void CMaterialEditor::SaveMaterial()
+{
+	if (!material)
+		return;
+
+	if (!material->File())
+	{
+		CSaveFileDialog dialog(this);
+		if (!dialog.exec())
+			return;
+
+		if (!CAssetManager::RegisterNewAsset(material, dialog.Path(), dialog.Mod()))
+			return;
+	}
+
+	material->Save();
+	undoStack->setClean();
+}
+
+bool CMaterialEditor::TrySaveMaterial()
+{
+	if (!undoStack->isClean())
+	{
+		int r = ExecSavePopup();
+		if (r == QMessageBox::Cancel)
+			return false;
+
+		if (r == QMessageBox::Save)
+			SaveMaterial();
+
+		if (r == QMessageBox::Discard)
+			RevertChanges();
+	}
+	return true;
+}
+
+int CMaterialEditor::ExecSavePopup()
+{
+	QMessageBox msg;
+	msg.setText("Do you want to save before closing?");
+	FString name = "new material";
+	if (material->File())
+		name = material->File()->Name();
+
+	msg.setInformativeText(name.c_str());
+	msg.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+	msg.setDefaultButton(QMessageBox::Save);
+	return msg.exec();
+}
+
+void CMaterialEditor::RevertChanges()
+{
+	if (material->File())
+		material->Init();
+
+	undoStack->clear();
+}
+
 void CMaterialEditor::UpdateProperties()
 {
 	for (auto w : curProperties)
 	{
-		propertiesLayout->removeWidget((QWidget*)w);
+		contentLayout->removeWidget((QWidget*)w);
 		w->deleteLater();
 	}
 	curProperties.Clear();
+	shaderEdit->SetValue(nullptr);
+
+	QThread::msleep(10); // wait for material to be updated in game thread.
 
 	if (!material)
 		return;
+
+	shaderEdit->SetValue(&material->shader);
+
+	renderPassCombo->setCurrentIndex(material->preferredRenderPass);
+	forceTransparentEdit->setChecked(material->bForceTransparentPass);
+	receiveShadowsEdit->setChecked(material->bReceiveShadows);
+	castShadowsEdit->setChecked(material->bCastShadows);
+	depthTestEdit->setChecked(material->bDepthTest);
 
 	//auto* shader = material->GetShaderSource();
 	for (auto& prop : material->properties)
 	{
 		QLabel* item = new QLabel(prop.name.c_str());
 
-		propertiesLayout->addWidget(item);
+		contentLayout->addWidget(item);
 		curProperties.Add(item);
 	}
 }

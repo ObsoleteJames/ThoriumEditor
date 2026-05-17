@@ -239,7 +239,7 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 		auto* item = fileTree->selectedItems()[0];
 
 		if (item->type() == EItemTypes_Folder)
-			SetDirectory((const char*)item->text(1).toUtf8().constData());
+			SetDirectory((const char*)item->text(2).toUtf8().constData(), (const char*)item->text(1).toUtf8().constData(), false);
 		else if (item->type() == EItemTypes_ModFolder)
 			SetDirectory((const char*)item->text(0).toUtf8().constData(), FString());
 	});
@@ -617,6 +617,7 @@ void CContentBrowserWidget::AddDirToTree(FMod* mod, FDirectory* dir, QTreeWidget
 	item->setText(0, QString(dir->GetName().c_str()));
 	FString path = dir->GetPath();
 	item->setText(1, QString(path.c_str()));
+	item->setText(2, QString(mod->Name().c_str()));
 	item->setIcon(0, QIcon(":/icons/folder-small.svg"));
 
 	for (auto* d : dir->GetSubDirectories())

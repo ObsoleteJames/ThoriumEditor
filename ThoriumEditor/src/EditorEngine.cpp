@@ -12,6 +12,8 @@
 #include "EditorConfig.h"
 #include "System.h"
 
+#include <Util/KeyValue.h>
+
 #include "Rendering/Renderer.h"
 #include "Rendering/RenderScene.h"
 #include "Rendering/GraphicsInterface.h"
@@ -42,13 +44,6 @@ void CEditorEngine::Init()
 	viewportCams[1] = new CCameraProxy();
 	viewportCams[2] = new CCameraProxy();
 	viewportCams[3] = new CCameraProxy();
-
-	viewportCams[1]->bOrthographic = true;
-	//viewportCams[1]->bDrawWireframe = true;
-	viewportCams[1]->fov = 2;
-	viewportCams[1]->position = FVector(0, 0, -1100);
-	//viewportCams[1]->nearPlane = 100;
-	viewportCams[1]->farPlane = 2000;
 
 	CWindow::Init();
 
@@ -178,12 +173,13 @@ int CEditorEngine::Run()
 
 		for (int i = 0; i < 4; i++)
 		{
-			if (gEditorWindow->worldViewports[i] && gEditorWindow->worldViewports[i]->GetSwapChain())
-				gEditorWindow->worldViewports[i]->GetSwapChain()->Present(0, 0);
+			auto* viewport = gEditorWindow->worldViewports[i];
+			if (viewport && viewport->GetSwapChain())
+				viewport->GetSwapChain()->Present(gEditorWindow->activeViewport == viewport ? 1 : 0, 0);
 		}
 
 		if (gEditorWindow->gameViewport && gEditorWindow->gameViewport->GetSwapChain())
-			gEditorWindow->gameViewport->GetSwapChain()->Present(1, 0);
+			gEditorWindow->gameViewport->GetSwapChain()->Present(0, 0);
 	}
 
 	return 0;
@@ -314,20 +310,31 @@ void CEditorEngine::OnLevelChange()
 
 		if (gWorld->GetScene() && gWorld->GetScene()->File())
 		{
-			CFStream sdkStream = gWorld->GetScene()->File()->GetSdkStream(".meta", "rb");
-			if (sdkStream.IsOpen())
+			//QString appdataPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "\\ThoriumEngine";
+			//QSettings settings(appdataPath + "\\EditorConfig\\" + Name + ".cfg", QSettings::Format::IniFormat);
+			
+			FString dataPath = SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/AssetUserData/";
+			CScene* scene = gWorld->GetScene();
+
+			FKeyValue kv(dataPath + "/" + FString::ToString(scene->AssetId()) + ".cfg");
+			if (kv.IsOpen())
 			{
-				FVector camPos;
-				FQuaternion camRot;
+				// Get camera data
+				for (int i = 0; i < 4; i++)
+				{
+					KVCategory* c = kv.GetCategory("viewport_" + FString::ToString(i));
+					if (!c)
+						continue;
 
-				sdkStream >> &camPos >> &camRot;
+					int view = c->GetValue("view")->AsInt();
+					FVector camPos = FVariant::FromString(*c->GetValue("position")).AsVector();
+					FQuaternion camRot = FVariant::FromString(*c->GetValue("rotation")).AsQuat();
 
-				viewportCams[0]->position = camPos;
-				viewportCams[0]->rotation = camRot;
-				sdkStream.Close();
+					viewportCams[i]->position = camPos;
+					viewportCams[i]->rotation = camRot;
 
-				// reset the camController's camera so it uses the new oriantation.
-				//camController->SetCamera(editorCamera);
+					gEditorWindow->worldViewports[i]->SetViewMode((ECameraView)view);
+				}
 			}
 		}
 
@@ -336,6 +343,32 @@ void CEditorEngine::OnLevelChange()
 	}
 
 	emit gEngineThread->onLevelChanged();
+}
+
+void CEditorEngine::OnSaveScene()
+{
+	gWorld->Save();
+
+	FString dataPath = SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/AssetUserData/";
+	CScene* scene = gWorld->GetScene();
+
+	CFileSystem::OSCreateDirectory(dataPath);
+
+	FKeyValue kv(dataPath + FString::ToString(scene->AssetId()) + ".cfg");
+	for (int i = 0; i < 4; i++)
+	{
+		if (!viewportCams[i] || !gEditorWindow->worldViewports[i])
+			continue;
+
+		KVCategory* c = kv.GetCategory("viewport_" + FString::ToString(i), true);
+
+		int view = gEditorWindow->worldViewports[i]->GetViewMode();
+		c->SetValue("view", FVariant(view).ToString());
+		c->SetValue("position", FVariant(viewportCams[i]->position).ToString());
+		c->SetValue("rotation", FVariant(viewportCams[i]->rotation).ToString());
+	}
+
+	kv.Save();
 }
 
 void CEditorEngine::UpdateEvents(EEventExec time)

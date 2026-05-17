@@ -68,19 +68,26 @@ void ScanAddonsForCompilation(const FString& project)
 	if (!project.IsEmpty())
 	{
 		FString projectAddonPath = project + "/addons";
-		for (auto entry : std::filesystem::directory_iterator(projectAddonPath.c_str()))
+		try 
 		{
-			if (!entry.is_directory())
-				continue;
+			for (auto entry : std::filesystem::directory_iterator(projectAddonPath.c_str()))
+			{
+				if (!entry.is_directory())
+					continue;
 
-			FString p = projectAddonPath + "/" + entry.path().filename().generic_string().c_str();
-			ScanAddon(p, addons, engineBinTime);
+				FString p = projectAddonPath + "/" + entry.path().filename().generic_string().c_str();
+				ScanAddon(p, addons, engineBinTime);
+			}
+		}
+		catch (std::exception& e)
+		{
+			CONSOLE_LogError("ThoriumEditor", e.what());
 		}
 	}
 
 	if (addons.Size() > 0)
 	{
-		auto r = QMessageBox::question(nullptr, "Addon Compilation Required", QString("%1 addon(s) are out of date or have not been compiled! would you like to compile the addon(s)?\nignoring this could cause unexpected errors!").arg(addons.Size()), QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+		auto r = QMessageBox::information(nullptr, "Addon Compilation Required", QString("%1 addon(s) are out of date or have not been compiled! would you like to compile the addon(s)?\nignoring this could cause unexpected errors!").arg(addons.Size()), QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 		if (r == QMessageBox::Yes)
 		{
 			bool bAllCompiled = true;

@@ -25,7 +25,13 @@ void CEditorVar::Save()
 	FKeyValue kv(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/Editor.cfg");
 
 	for (auto& var : _EditorVariables())
-		kv.SetValue(var->name, var->value.ToString());
+	{
+		FString name = var->name;
+		name.ReplaceAll(' ', '_');
+		name.ReplaceAll('\t', '_');
+
+		kv.SetValue(name, var->value.ToString());
+	}
 
 	kv.Save();
 }
@@ -38,7 +44,11 @@ void CEditorVar::Load()
 	
 	for (auto& var : _EditorVariables())
 	{
-		auto* v = kv.GetValue(var->name, false);
+		FString name = var->name;
+		name.ReplaceAll(' ', '_');
+		name.ReplaceAll('\t', '_');
+
+		auto* v = kv.GetValue(name, false);
 		if (v)
 			var->value = FVariant::FromString(v->Value);
 		else

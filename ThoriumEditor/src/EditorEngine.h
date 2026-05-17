@@ -29,6 +29,7 @@ public:
 class EDITOR_API CEditorEngine : public CEngine
 {
 	friend class CEngineThread;
+	friend class CEditorWindow;
 
 public:
 	CEditorEngine() = default;
@@ -50,10 +51,15 @@ public:
 	bool IsObjectSelected(CObject* obj);
 	void ClearSelection();
 
+	// Returns the selected objects of the specified type.
+	template<typename T>
+	TArray<T*> GetSelectedObjects();
+
 	void BakeLighting();
 
 private:
 	void OnLevelChange();
+	void OnSaveScene();
 
 	void UpdateEvents(EEventExec time);
 
@@ -73,10 +79,19 @@ public: // Editor Variables
 	TObjectPtr<CObject> activeObject;
 	TArray<TObjectPtr<CObject>> selectedObjects;
 
-public: // Rendering
+public:
+	// Grid
+	bool bGridSnap = false;
+	bool bAngleSnap = false;
+	float gridSize = 1.0f;
+	float angleSnap = 15.f;
+	
+	// Rendering
+	bool bDrawGrid = true;
 	bool bSelectionBoundingBox = true;
 	bool bSelectionOverlay = true;
 	bool bSelectionSizeText = true;
+	bool bDrawGizmos = true;
 	bool bGameView = false;
 
 	CCameraProxy* viewportCams[4];
@@ -84,8 +99,17 @@ public: // Rendering
 	TObjectPtr<CShaderSource> shaderSelectOverlay;
 	TObjectPtr<IGBuffer> objectBuffer;
 	TObjectPtr<IGBuffer> sceneBuffer;
-
 };
 
-//inline CEditorEngine* gEditorEngine() { return (CEditorEngine*)gEngine; }
 #define gEditorEngine ((CEditorEngine*)gEngine)
+
+template<typename T>
+inline TArray<T*> CEditorEngine::GetSelectedObjects()
+{
+	TArray<T*> r;
+	for (auto& obj : selectedObjects)
+		if (T* c = Cast<T>(obj); c != nullptr)
+			r.Add(c);
+
+	return r;
+}

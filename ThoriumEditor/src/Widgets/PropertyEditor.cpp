@@ -227,7 +227,7 @@ void CPropertyEditorWidget::AddProperties(FStruct* type, void* obj, CObject* cdo
 
 		if (p->meta && p->meta->HasFlag("Inline") && p->type == EVT_STRUCT)
 		{
-			AddProperties(CModuleManager::FindStruct(p->typeName), obj);
+			AddProperties(CModuleManager::FindStruct(p->typeName), (void*)((SizeType)obj + p->offset));
 			continue;
 		}
 

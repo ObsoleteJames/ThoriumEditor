@@ -99,9 +99,11 @@ CVectorProperty::CVectorProperty(FVector* v, const FString& name, QWidget* paren
 
 void CVectorProperty::Update()
 {
+	blockSignals(true);
 	for (uint8 i = 0; i < 3; i++)
 	{
 		if (editors[i]->value() != value[i])
 			editors[i]->setValue(value[i]);
 	}
+	blockSignals(false);
 }

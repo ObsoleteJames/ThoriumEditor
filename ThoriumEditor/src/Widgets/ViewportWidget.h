@@ -14,6 +14,15 @@ enum class ECameraControlMode
 	Ortho
 };
 
+enum ECameraView
+{
+	Cam3DPerspective,
+	Cam3DOrtho,
+	Cam2DTop,
+	Cam2DFront,
+	Cam2DSide,
+};
+
 class CViewportWidget : public CRenderWidget
 {
 	Q_OBJECT
@@ -30,6 +39,9 @@ public:
 
 	inline FVector GetMoveVector() const { return FVector(moveLeft + -moveRight, -moveForward + moveBack, 0); }
 
+	void SetViewMode(ECameraView view);
+	inline ECameraView GetViewMode() const { return camView; }
+
 protected:
 	void mouseMoveEvent(QMouseEvent* event) override;
 	void mousePressEvent(QMouseEvent* event) override;
@@ -43,6 +55,8 @@ protected:
 	void showEvent(QShowEvent* event) override;
 	void resizeEvent(QResizeEvent* event) override;
 
+	bool event(QEvent* event) override;
+
 	//void DoMousePick(const QPointF& mousePos);
 
 Q_SIGNALS:
@@ -51,6 +65,9 @@ Q_SIGNALS:
 public Q_SLOTS:
 	void OnUpdate();
 
+public:
+	float camFov = 90.f;
+
 private:
 	CCameraProxy* camera = nullptr;
 	bool bOwnsCamera = false;
@@ -58,6 +75,7 @@ private:
 	QComboBox* comboViewMode;
 
 	ECameraControlMode mode = ECameraControlMode::FreeMode;
+	ECameraView camView = Cam3DPerspective;
 
 	QPoint mouseClickPos;
 	int cameraSpeed = 4;

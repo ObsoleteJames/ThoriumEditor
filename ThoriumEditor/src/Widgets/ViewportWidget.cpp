@@ -25,7 +25,7 @@ float GetCameraSpeed(int index)
 
 float GetCameraOrthoZoom(int index)
 {
-	float zoom = 0.1f;
+	float zoom = 10.f;
 	return zoom * ((index * index) / 1.5f);
 }
 
@@ -97,6 +97,8 @@ void CViewportWidget::OnUpdate()
 
 	if (camera->bOrthographic)
 		camera->fov = GetCameraOrthoZoom(orthoZoom);
+	else
+		camera->fov = camFov;
 
 	//FVector euler = camera->rotation.ToEuler().Degrees();
 	//cameraPitch = euler.x;
@@ -163,6 +165,51 @@ void CViewportWidget::OnUpdate()
 	mouseDeltaX = 0;
 }
 
+void CViewportWidget::SetViewMode(ECameraView view)
+{
+	if (view == camView)
+		return;
+
+	camView = view;
+
+	mode = ECameraControlMode::FreeMode;
+	camera->bOrthographic = false;
+
+	// Orthographic projection
+	if (camView > 0)
+	{
+		camera->bOrthographic = true;
+
+		if (camView > 1)
+		{
+			FVector pos = camera->position;
+			FVector rot{};
+
+			float& zFar = camera->farPlane;
+			float halfFar = zFar * 0.3f;
+
+			switch (camView)
+			{
+			case Cam2DTop:
+				pos = { 0, halfFar, 0 };
+				rot = { 90, 0, 0 };
+				break;
+			case Cam2DFront:
+				pos = { 0, 0, -halfFar };
+				break;
+			case Cam2DSide:
+				pos = { halfFar, 0, 0 };
+				rot = { 0, -90, 0 };
+				break;
+			}
+
+			camera->position = pos;
+			camera->rotation = FQuaternion::EulerAngles(rot.Radians());
+			mode = ECameraControlMode::Ortho;
+		}
+	}
+}
+
 void CViewportWidget::mouseMoveEvent(QMouseEvent* event)
 {
 	if (bMouseRight && !bRotateCam && mouseClickPos != event->globalPos())
@@ -170,6 +217,14 @@ void CViewportWidget::mouseMoveEvent(QMouseEvent* event)
 		QCursor cursor(Qt::BlankCursor);
 		QApplication::setOverrideCursor(cursor);
 
+		moveForward = 0;
+		moveBack = 0;
+		moveLeft = 0;
+		moveRight = 0;
+		moveUp = 0;
+		moveDown = 0;
+
+		setFocus();
 		bRotateCam = true;
 	}
 
@@ -182,9 +237,8 @@ void CViewportWidget::mouseMoveEvent(QMouseEvent* event)
 
 void CViewportWidget::mousePressEvent(QMouseEvent* event)
 {
-	CRenderWidget::mousePressEvent(event);
-	if (bMouseLeft || bMouseMiddle || bMouseRight)
-		return;
+	//if (bMouseLeft || bMouseMiddle || bMouseRight)
+	//	return;
 
 	mouseClickPos = event->globalPos();
 	switch (event->button())
@@ -193,23 +247,21 @@ void CViewportWidget::mousePressEvent(QMouseEvent* event)
 		bMouseLeft = true;
 		break;
 	case Qt::RightButton:
-	{
 		if (mode == ECameraControlMode::FreeMode)
-		{
 			mouseClickPos = event->globalPos();
-		}
 		bMouseRight = true;
-	}
-	break;
+		break;
 	case Qt::MiddleButton:
 		bMouseMiddle = true;
+		break;
+	default:
+		CRenderWidget::mousePressEvent(event);
 		break;
 	}
 }
 
 void CViewportWidget::mouseReleaseEvent(QMouseEvent* event)
 {
-	CRenderWidget::mouseReleaseEvent(event);
 	switch (event->button())
 	{
 	case Qt::LeftButton:
@@ -246,11 +298,15 @@ void CViewportWidget::mouseReleaseEvent(QMouseEvent* event)
 				QCursor::setPos(mouseClickPos);
 			//}
 
+			clearFocus();
 			bRotateCam = false;
 		}
 		break;
 	case Qt::MiddleButton:
 		bMouseMiddle = false;
+		break;
+	default:
+		CRenderWidget::mouseReleaseEvent(event);
 		break;
 	}
 }
@@ -277,8 +333,11 @@ void CViewportWidget::keyPressEvent(QKeyEvent* event)
 	case Qt::Key_E:
 		moveUp = 1;
 		break;
+	default:
+		if (!bRotateCam)
+			CRenderWidget::keyPressEvent(event);
+		break;
 	}
-	CRenderWidget::keyPressEvent(event);
 }
 
 void CViewportWidget::keyReleaseEvent(QKeyEvent* event)
@@ -303,8 +362,11 @@ void CViewportWidget::keyReleaseEvent(QKeyEvent* event)
 	case Qt::Key_E:
 		moveUp = 0;
 		break;
+	default:
+		if (!bRotateCam)
+			CRenderWidget::keyReleaseEvent(event);
+		break;
 	}
-	CRenderWidget::keyReleaseEvent(event);
 }
 
 void CViewportWidget::wheelEvent(QWheelEvent* event)
@@ -334,6 +396,20 @@ void CViewportWidget::resizeEvent(QResizeEvent* event)
 
 	/*if (camera)
 		camera->renderTarget = GetSwapChain()->GetFrameBuffer();*/
+}
+
+bool CViewportWidget::event(QEvent* event)
+{
+	if (event->type() == QEvent::ShortcutOverride)
+	{
+		if (bRotateCam)
+		{
+			event->accept();
+			return true;
+		}
+	}
+
+	return CRenderWidget::event(event);
 }
 
 //void CViewportWidget::DoMousePick(const QPointF& mousePos)

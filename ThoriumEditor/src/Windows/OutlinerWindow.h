@@ -16,7 +16,7 @@ struct FOutlinerFolder
 	QTreeWidgetItem* item = nullptr;
 
 	TArray<FOutlinerFolder> children;
-	TArray<SizeType> entities;
+	TArray<SizeType> entities; // ent IDs
 };
 
 class COutlinerWindow : public ads::CDockWidget
@@ -34,19 +34,22 @@ private slots:
 
 	void selectionChanged();
 
+	void LoadSceneTree();
+	void SaveSceneTree();
+
 Q_SIGNALS:
 	void entitySelected(CEntity*);
 
-private:
-	TMap<SizeType, QTreeWidgetItem*> entityItems;
-
+public:
 	QTreeWidgetItem* sceneItem;
 
 	//	 entId  -  folderItem
 	TMap<SizeType, QTreeWidgetItem*> entityFolderLut;
-	CWorld* curWorld = nullptr;
 
-	FOutlinerFolder folderRoot;
+private:
+	TMap<SizeType, QTreeWidgetItem*> entityItems;
+
+	CWorld* curWorld = nullptr;
 
 	QLineEdit* filter;
 	QTreeWidget* outlinerTree;

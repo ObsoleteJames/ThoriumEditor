@@ -5,6 +5,9 @@
 #include <QApplication>
 #include "Misc/Timer.h"
 
+#include <chrono>
+#include <thread>
+
 CEngineThread::CEngineThread(QObject* parent /*= nullptr*/) : QThread(parent)
 {
 }
@@ -23,18 +26,8 @@ void CEngineThread::run()
 		}
 		dtTimer.Begin();
 
-		//FTimer timer;
-		//timer.Begin();
-
 		emit onUpdate();
 		gEngine->Run();
-
-		//timer.Stop();
-
-		//double targetMs = 2.0;
-		//double sleepTime = FMath::Max(targetMs - timer.GetMiliseconds(), 0.0);
-
-		//usleep(ulong(sleepTime * 10));
 
 		dtTimer.Stop();
 		gEditorEngine->SetDeltaTime(dtTimer.GetSeconds());

@@ -1,5 +1,7 @@
+
 #include "ConsoleWindow.h"
 #include "EditorEngine.h"
+#include "EditorWindow.h"
 
 #include <QLabel>
 #include <QBoxLayout>
@@ -104,32 +106,35 @@ CConsoleWidget::~CConsoleWidget()
 	delete consoleLog;
 }
 
-void CConsoleWidget::OnLog(const FConsoleMsg& msg)
+void CConsoleWidget::OnLog(const FConsoleMsg& _msg)
 {
-	consoleLog->moveCursor(QTextCursor::End);
-	consoleLog->setTextColor(QColor(111, 179, 75));
-	//consoleLog->setTextBackgroundColor(QColor(111, 179, 75, 20));
-	//consoleLog->insertPlainText(logTypeText[msg.type]);
-	consoleLog->setTextBackgroundColor(QColor(0, 0, 0, 0));
+	FConsoleMsg msg = _msg;
+	qApp->postEvent(gEditorWindow, new FThreadEvent([=]() {
+		consoleLog->moveCursor(QTextCursor::End);
+		consoleLog->setTextColor(QColor(111, 179, 75));
+		//consoleLog->setTextBackgroundColor(QColor(111, 179, 75, 20));
+		//consoleLog->insertPlainText(logTypeText[msg.type]);
+		consoleLog->setTextBackgroundColor(QColor(0, 0, 0, 0));
 
-	FString msgTime = TimeToHmsString((time_t*)&msg.time);
-	consoleLog->insertPlainText(("[" + msgTime + "] " + msg.module).c_str());
-	
-	consoleLog->setTextBackgroundColor(QColor(0, 0, 0, 0));
-	consoleLog->setTextColor(QColor(200, 200, 200));
-	//consoleLog->setTextColor(QColor("text"));
+		FString msgTime = TimeToHmsString((time_t*)&msg.time);
+		consoleLog->insertPlainText(("[" + msgTime + "] " + msg.module).c_str());
 
-	consoleLog->insertPlainText(" ");
+		consoleLog->setTextBackgroundColor(QColor(0, 0, 0, 0));
+		consoleLog->setTextColor(QColor(200, 200, 200));
+		//consoleLog->setTextColor(QColor("text"));
 
-	if (msg.type == CONSOLE_WARNING)
-		consoleLog->setTextColor(QColor(230, 197, 67));
+		consoleLog->insertPlainText(" ");
 
-	if (msg.type == CONSOLE_ERROR)
-		consoleLog->setTextBackgroundColor(QColor(207, 32, 23, 100));
+		if (msg.type == CONSOLE_WARNING)
+			consoleLog->setTextColor(QColor(230, 197, 67));
 
-	consoleLog->insertPlainText((msg.msg + "\n").c_str());
-	consoleLog->moveCursor(QTextCursor::End);
-	consoleLog->setTextBackgroundColor(QColor(0, 0, 0, 0));
+		if (msg.type == CONSOLE_ERROR)
+			consoleLog->setTextBackgroundColor(QColor(207, 32, 23, 100));
+
+		consoleLog->insertPlainText((msg.msg + "\n").c_str());
+		consoleLog->moveCursor(QTextCursor::End);
+		consoleLog->setTextBackgroundColor(QColor(0, 0, 0, 0));
+	}));
 }
 
 bool CConsoleWidget::eventFilter(QObject* obj, QEvent* ev)

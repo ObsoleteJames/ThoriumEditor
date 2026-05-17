@@ -24,6 +24,7 @@ private:
 	FQuaternion* value;
 
 	FQuaternion cache;
+	FVector cacheEuler;
 	FString undoName;
 
 };

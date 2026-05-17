@@ -26,10 +26,20 @@ public:
 private:
 	void GameUpdate();
 
+	bool viewportEvent(QObject* obj, QEvent* ev) override;
+
 private:
 	ads::CDockWidget* toolWindow;
 
 	TObjectPtr<FGizmo> gizmo;
+	bool bSnapGizmo = false;
+	bool bCtrl = false; // is CTRL being held
 
-	//PObjectTool* p;
+	bool bEnabled = false;
+
+	// viewport data.
+	QPointF mousePos;
+	uint mouseBtns = 0;
+	uint mouseModifiers = 0;
+
 };

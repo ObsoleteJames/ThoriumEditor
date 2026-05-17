@@ -33,3 +33,8 @@ enum EItemTypes
 	EItemTypes_SceneComponent,
 	EItemTypes_World
 };
+
+enum EEditorEvents
+{
+	EditorEvents_ThreadEvent = 1000,
+};

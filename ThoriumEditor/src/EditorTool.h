@@ -26,6 +26,9 @@ public:
 
 	inline const QIcon& getIcon() const { return icon; }
 
+public:
+	virtual bool viewportEvent(QObject* obj, QEvent* ev) { return false; }
+
 signals:
 	void onEnabled();
 	void onDisabled();

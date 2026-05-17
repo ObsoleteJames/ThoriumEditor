@@ -23,6 +23,7 @@
 #include "Widgets/ViewportWidget.h"
 #include "Widgets/FileDialogs.h"
 #include "Widgets/ClassSelectorDialog.h"
+#include "Widgets/ViewportArea.h"
 
 #include "Tools/ObjectTool.h"
 #include "Tools/ModellingTool.h"
@@ -47,6 +48,9 @@
 #include <QUndoStack>
 #include <QUndoView>
 #include <QMessageBox>
+#include <QSpinBox>
+#include <QWidgetAction>
+#include <QCheckBox>
 
 #include <filesystem>
 
@@ -82,11 +86,23 @@ bool CEditorWindow::Shutdown()
 	return true;
 }
 
+QWidget* MakeActionWidget(QWidget* in, const QString& label)
+{
+	QWidget* parent = (QWidget*)in->parent();
+
+	QWidget* r = new QWidget(parent);
+	QHBoxLayout* l = new QHBoxLayout(parent);
+	r->setLayout(l);
+	
+	QLabel* lbl = new QLabel(label, parent);
+	l->addWidget(lbl);
+	l->addWidget(in);
+
+	return r;
+}
+
 void CEditorWindow::SetupUi()
 {
-	if (gSplashscreen)
-		gSplashscreen->finish(this);
-
 	ScanAvailableThemes();
 
 	int x = QGuiApplication::primaryScreen()->geometry().width();
@@ -164,9 +180,9 @@ void CEditorWindow::SetupUi()
 	actCopy = menuEdit->addAction("Copy", QKeySequence(Qt::CTRL | Qt::Key_C));
 	actPaste = menuEdit->addAction("Paste", QKeySequence(Qt::CTRL | Qt::Key_V));
 	actDuplicate = menuEdit->addAction("Duplicate");
-	actDelete = menuEdit->addAction("Delete", QKeySequence(Qt::Key_Delete));
-	actFocusObj = menuEdit->addAction("Focus", QKeySequence(Qt::Key_F));
-	actToggleVisObj = menuEdit->addAction("Toggle Visibility", QKeySequence(Qt::Key_H));
+	actDelete = menuEdit->addAction("Delete", QKeySequence(Qt::Key_Delete), this, &CEditorWindow::deleteSelected);
+	actFocusObj = menuEdit->addAction("Focus", QKeySequence(Qt::Key_F), this, &CEditorWindow::focusOnSelection);
+	actToggleVisObj = menuEdit->addAction("Toggle Visibility", QKeySequence(Qt::Key_H), this, &CEditorWindow::toggleSelectionVis);
 	menuEdit->addSeparator();
 	menuEdit->addAction("Editor Settings");
 	menuEdit->addAction("Project Settings");
@@ -179,27 +195,38 @@ void CEditorWindow::SetupUi()
 	
 	// Editor view
 	{
-		QWidget* widget = new QWidget(this);
-		widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-		QHBoxLayout* layout = new QHBoxLayout(this);
-		//layout->setSpacing(0);
-
-		QVBoxLayout* layoutA = new QVBoxLayout(this);
-		layout->addLayout(layoutA);
-		QVBoxLayout* layoutB = new QVBoxLayout(this);
-		layout->addLayout(layoutB);
-
-		widget->setLayout(layout);
-
-		sceneDock = new ads::CDockWidget("Scene Viewport", this);
-		sceneDock->setObjectName("Scene");
-		sceneDock->setWidget(widget);
-		dockmanager->addDockWidget(ads::CenterDockWidgetArea, sceneDock);
+		CViewportArea* area = new CViewportArea(this);
 
 		worldViewports[0] = new CViewportWidget(this);
 		worldViewports[0]->SetCamera(gEditorEngine->viewportCams[0]);
-		layoutA->addWidget(worldViewports[0]);
+		worldViewports[0]->installEventFilter(this);
+		QWidget* v1 = MakeViewportWidget(worldViewports[0]);
+		area->addWidget(v1);
+
+		worldViewports[1] = new CViewportWidget(this);
+		worldViewports[1]->SetCamera(gEditorEngine->viewportCams[1]);
+		worldViewports[1]->installEventFilter(this);
+		QWidget* v2 = MakeViewportWidget(worldViewports[1]);
+		area->addWidget(v2);
+
+		worldViewports[2] = new CViewportWidget(this);
+		worldViewports[2]->SetCamera(gEditorEngine->viewportCams[2]);
+		worldViewports[2]->installEventFilter(this);
+		QWidget* v3 = MakeViewportWidget(worldViewports[2]);
+		area->addWidget(v3);
+
+		worldViewports[3] = new CViewportWidget(this);
+		worldViewports[3]->SetCamera(gEditorEngine->viewportCams[3]);
+		worldViewports[3]->installEventFilter(this);
+		QWidget* v4 = MakeViewportWidget(worldViewports[3]);
+		area->addWidget(v4);
+
+		sceneDock = new ads::CDockWidget("Scene Viewport", this);
+		sceneDock->setObjectName("Scene");
+		sceneDock->setWidget(area);
+		dockmanager->addDockWidget(ads::CenterDockWidgetArea, sceneDock);
+
+		area->setViewportLayout(ViewportLayout_Single);
 
 		/*worldViewports[1] = new CViewportWidget(this);
 		worldViewports[1]->SetCamera(gEditorEngine()->viewportCams[1]);
@@ -272,6 +299,35 @@ void CEditorWindow::SetupUi()
 	setStatusBar(statusBar);
 
 	{
+		tbGrid = addToolBar("Grid");
+		
+		actShowGrid = tbGrid->addAction(QIcon(":/icons/grid.png"), "View Grid");
+		actShowGrid->setCheckable(true);
+		actShowGrid->setChecked(gEditorEngine->bDrawGrid);
+		
+		actGridSnap = tbGrid->addAction(QIcon(":/icons/snap-to-grid.png"), "Snap to Grid");
+		actGridSnap->setCheckable(true);
+		actShowGrid->setChecked(gEditorEngine->bGridSnap);
+
+		QDoubleSpinBox* spinGridSize = new QDoubleSpinBox();
+		spinGridSize->setRange(0.1, 100);
+		spinGridSize->setValue(1.0);
+		tbGrid->addWidget(spinGridSize);
+
+		connect(spinGridSize, &QDoubleSpinBox::valueChanged, this, [=](double v) { gEditorEngine->gridSize = v; });
+
+		actAngleSnap = tbGrid->addAction(QIcon(":/icons/angle-snap.png"), "Angle Snap");
+		actAngleSnap->setCheckable(true);
+		actShowGrid->setChecked(gEditorEngine->bAngleSnap);
+
+		QDoubleSpinBox* spinRotSnap = new QDoubleSpinBox();
+		spinRotSnap->setRange(0.1, 90); 
+		spinRotSnap->setValue(15);
+		tbGrid->addWidget(spinRotSnap);
+
+		connect(spinRotSnap, &QDoubleSpinBox::valueChanged, this, [=](double v) { gEditorEngine->angleSnap = v; });
+	}
+	{
 		tbScene = addToolBar("Scene");
 
 		tbScene->addAction(actSaveScene);
@@ -288,17 +344,20 @@ void CEditorWindow::SetupUi()
 	{
 		tbGizmoMode = addToolBar("Gizmo Mode");
 
-		actGizmoSelect = tbGizmoMode->addAction(QIcon(":/icons/select-cursor.svg"), "Select");
+		tbGizmoMode->addAction(QIcon(":/icons/translate-worldspace.png"), "World Space")->setCheckable(true);
+		tbGizmoMode->addSeparator();
+
+		actGizmoSelect = tbGizmoMode->addAction(QIcon(":/icons/select-cursor.svg"), "Select", QKeySequence(Qt::SHIFT | Qt::Key_S));
 		actGizmoSelect->setCheckable(true);
 		actGizmoSelect->setChecked(true);
 
-		actGizmoTranslate = tbGizmoMode->addAction(QIcon(":/icons/select-translate.svg"), "Translate");
+		actGizmoTranslate = tbGizmoMode->addAction(QIcon(":/icons/select-translate.svg"), "Translate", QKeySequence(Qt::Key_W));
 		actGizmoTranslate->setCheckable(true);
 			
-		actGizmoRotate = tbGizmoMode->addAction(QIcon(":/icons/select-rotate.svg"), "Rotate");
+		actGizmoRotate = tbGizmoMode->addAction(QIcon(":/icons/select-rotate.svg"), "Rotate", QKeySequence(Qt::Key_E));
 		actGizmoRotate->setCheckable(true);
 
-		actGizmoScale = tbGizmoMode->addAction(QIcon(":/icons/select-scale.svg"), "Scale");
+		actGizmoScale = tbGizmoMode->addAction(QIcon(":/icons/select-scale.svg"), "Scale", QKeySequence(Qt::Key_R));
 		actGizmoScale->setCheckable(true);
 
 		actGroupGizmo = new QActionGroup(this);
@@ -306,6 +365,16 @@ void CEditorWindow::SetupUi()
 		actGroupGizmo->addAction(actGizmoTranslate);
 		actGroupGizmo->addAction(actGizmoRotate);
 		actGroupGizmo->addAction(actGizmoScale);
+	}
+	{
+		tbView = addToolBar("Editor View");
+
+		actDrawBounds = tbView->addAction(QIcon(":/icons/bounding-box.png"), "Selection Bounding Box"); actDrawBounds->setCheckable(true);
+		actDrawOverlay = tbView->addAction(QIcon(":/icons/select-overlay.png"), "Selection Overlay"); actDrawOverlay->setCheckable(true);
+		actDrawGizmos = tbView->addAction(QIcon(":/icons/view-gizmos.png"), "View Gizmos"); actDrawGizmos->setCheckable(true);
+		actDrawBounds->setChecked(gEditorEngine->bSelectionBoundingBox);
+		actDrawOverlay->setChecked(gEditorEngine->bSelectionOverlay);
+		actDrawGizmos->setChecked(gEditorEngine->bDrawGizmos);
 	}
 	{
 		tbGame = addToolBar("Play in Editor");
@@ -332,12 +401,23 @@ void CEditorWindow::SetupUi()
 	connect(gEngineThread, &CEngineThread::onLevelChanged, this, &CEditorWindow::levelChanged);
 	connect(comboActiveTool, &QComboBox::currentTextChanged, this, [=](const QString& txt) { SetTool(txt); });
 
+	connect(actShowGrid, &QAction::triggered, this, [=](bool v) { gEditorEngine->bDrawGrid = v; });
+	connect(actGridSnap, &QAction::triggered, this, [=](bool v) { gEditorEngine->bGridSnap = v; });
+	connect(actAngleSnap, &QAction::triggered, this, [=](bool v) { gEditorEngine->bAngleSnap = v; });
+
+	connect(actDrawBounds, &QAction::triggered, this, [=](bool v) { gEditorEngine->bSelectionBoundingBox = v; });
+	connect(actDrawOverlay, &QAction::triggered, this, [=](bool v) { gEditorEngine->bSelectionOverlay = v; });
+	connect(actDrawGizmos, &QAction::triggered, this, &CEditorWindow::showGizmos);
+
 	connect(actGizmoSelect, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Select); });
 	connect(actGizmoTranslate, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Translate); });
 	connect(actGizmoRotate, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Rotate); });
 	connect(actGizmoScale, &QAction::triggered, this, [=](bool b) { if (b) SetGizmoMode(Gizmo_Scale); });
 	
 	connect(worldViewports[0], &CViewportWidget::onMousePick, this, &CEditorWindow::mousePick);
+	connect(worldViewports[1], &CViewportWidget::onMousePick, this, &CEditorWindow::mousePick);
+	connect(worldViewports[2], &CViewportWidget::onMousePick, this, &CEditorWindow::mousePick);
+	connect(worldViewports[3], &CViewportWidget::onMousePick, this, &CEditorWindow::mousePick);
 
 	connect(sceneUndoStack, &QUndoStack::cleanChanged, this, [=]() {
 		updateTitle();
@@ -349,8 +429,184 @@ void CEditorWindow::SetupUi()
 	RestoreState();
 
 	SetTool("Object Tool");
+	showGizmos(gEditorEngine->bDrawGizmos);
 
 	updateTitle();
+}
+
+QWidget* CEditorWindow::MakeViewportWidget(CViewportWidget* viewport)
+{
+	QWidget* widget = new QWidget(this);
+	widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+	// scene menu bar
+	QVBoxLayout* l1 = new QVBoxLayout(this);
+	QMenuBar* sceneMenuBar = new QMenuBar(this);
+	l1->addWidget(sceneMenuBar);
+	l1->setContentsMargins(0, 2, 0, 0);
+	l1->setSpacing(0);
+	sceneMenuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	sceneMenuBar->setFixedHeight(32);
+	sceneMenuBar->setNativeMenuBar(false);
+
+	{
+		QMenu* menuRender = sceneMenuBar->addMenu(QIcon(":/icons/rview-lit.svg"), "View Mode");
+		//QAction* actRender = tb->addAction(QIcon(":/icons/rview-lit.svg"), "View Mode");
+		
+		QAction* actions[] = {
+			menuRender->addAction(QIcon(":/icons/rview-lit.svg"), "Lit"),
+			menuRender->addAction(QIcon(":/icons/rview-unlit.svg"), "Unlit"),
+			menuRender->addAction(QIcon(":/icons/rview-diffuse.svg"), "Diffuse"),
+			menuRender->addAction(QIcon(":/icons/rview-wireframe.svg"), "Wireframe"),
+			menuRender->addAction(QIcon(":/icons/rview-normal.svg"), "Normal")
+		};
+		QActionGroup* group = new QActionGroup(this);
+
+		for (int i = 0; i < 5; i++)
+		{
+			QAction* act = actions[i];
+			act->setCheckable(true);
+			group->addAction(act);
+
+			connect(act, &QAction::triggered, this, [=](bool b) {
+				if (!b)
+					return;
+
+				menuRender->setIcon(act->icon());
+				viewport->GetCamera()->viewMode = (CCameraProxy::EViewMode)i;
+			});
+
+			connect(menuView, &QMenu::aboutToShow, this, [=]() {
+				int v = (int)viewport->GetCamera()->viewMode;
+				actions[v]->setChecked(true);
+			});
+		}
+	}
+
+	// Menu View
+	{
+		QMenu* menuView = sceneMenuBar->addMenu("View");
+
+		QAction* actions[] = {
+			menuView->addAction("Perspective"),
+			menuView->addAction("Orthographic"),
+			menuView->addAction("2D Top"),
+			menuView->addAction("2D Front"),
+			menuView->addAction("2D Side")
+		};
+		QActionGroup* group = new QActionGroup(this);
+
+		for (int i = 0; i < 5; i++)
+		{
+			actions[i]->setCheckable(true);
+			group->addAction(actions[i]);
+
+			connect(actions[i], &QAction::triggered, this, [=](bool b) { if (b) viewport->SetViewMode((ECameraView)i); });
+		}
+
+		connect(menuView, &QMenu::aboutToShow, this, [=]() {
+			int v = viewport->GetViewMode();
+			actions[v]->setChecked(true);
+		});
+	}
+
+	// Menu Camera
+	{
+		QMenu* menuCamera = sceneMenuBar->addMenu("Camera");
+
+		QSlider* sliderFov = new QSlider(Qt::Horizontal, this);
+		sliderFov->setRange(1, 179);
+
+		QWidget* wFov = MakeActionWidget(sliderFov, "FOV");
+
+		QWidgetAction* wa = new QWidgetAction(this);
+		wa->setDefaultWidget(wFov);
+		menuCamera->addAction(wa);
+
+		QDoubleSpinBox* spinNearPlane = new QDoubleSpinBox(this);
+		spinNearPlane->setRange(0.01, 100.0);
+		spinNearPlane->setStepType(QAbstractSpinBox::AdaptiveDecimalStepType);
+		spinNearPlane->setSingleStep(0.1);
+
+		QWidget* wNearPlane = MakeActionWidget(spinNearPlane, "Near Plane");
+
+		wa = new QWidgetAction(this);
+		wa->setDefaultWidget(wNearPlane);
+		menuCamera->addAction(wa);
+
+		QDoubleSpinBox* spinFarPlane = new QDoubleSpinBox(this);
+		spinFarPlane->setRange(0.1, 10000.0);
+		spinFarPlane->setStepType(QAbstractSpinBox::AdaptiveDecimalStepType);
+		spinFarPlane->setSingleStep(0.1);
+
+		QWidget* wFarPlane = MakeActionWidget(spinFarPlane, "Far Plane");
+
+		wa = new QWidgetAction(this);
+		wa->setDefaultWidget(wFarPlane);
+		menuCamera->addAction(wa);
+
+		QCheckBox* checkWireframe = new QCheckBox(this);
+
+		QWidget* wWireframe = MakeActionWidget(checkWireframe, "Wireframe");
+
+		wa = new QWidgetAction(this);
+		wa->setDefaultWidget(wWireframe);
+		menuCamera->addAction(wa);
+
+		connect(sliderFov, &QSlider::valueChanged, this, [=](int v) { viewport->camFov = (float)v; });
+		connect(spinNearPlane, &QDoubleSpinBox::valueChanged, this, [=](double v) { viewport->GetCamera()->nearPlane = (float)v; });
+		connect(spinFarPlane, &QDoubleSpinBox::valueChanged, this, [=](double v) { viewport->GetCamera()->farPlane = (float)v; });
+		connect(checkWireframe, &QCheckBox::stateChanged, this, [=](int v) { viewport->GetCamera()->bDrawWireframe = v == Qt::Checked; });
+
+		connect(menuCamera, &QMenu::aboutToShow, this, [=]() {
+			sliderFov->setValue((int)viewport->camFov);
+			spinNearPlane->setValue(viewport->GetCamera()->nearPlane);
+			spinFarPlane->setValue(viewport->GetCamera()->farPlane);
+			checkWireframe->setChecked(viewport->GetCamera()->bDrawWireframe);
+		});
+	}
+
+	l1->addWidget(viewport);
+	widget->setLayout(l1);
+	return widget;
+}
+
+bool CEditorWindow::eventFilter(QObject* obj, QEvent* ev)
+{
+	for (int i = 0; i < 4; i++)
+	{
+		if (obj == worldViewports[i])
+		{
+			if (ev->type() == QEvent::MouseMove)
+				activeViewport = worldViewports[i];
+			//else if (ev->type() == QEvent::HoverLeave && activeViewport == obj)
+			//	activeViewport = nullptr;
+
+			if (activeTool && activeTool->viewportEvent(obj, ev))
+				return true;
+		}
+	}
+	return false;
+}
+
+void CEditorWindow::showEvent(QShowEvent* ev)
+{
+	if (gSplashscreen)
+		gSplashscreen->finish(this);
+
+	CToolsWindow::showEvent(ev);
+}
+
+bool CEditorWindow::event(QEvent* e)
+{
+	if (e->type() == EditorEvents_ThreadEvent)
+	{
+		auto* ev = (FThreadEvent*)e;
+		ev->Invoke();
+		return true;
+	}
+
+	return CToolsWindow::event(e);
 }
 
 void CEditorWindow::engineUpdate()
@@ -362,7 +618,7 @@ void CEditorWindow::engineUpdate()
 void CEditorWindow::SetGizmoMode(EGizmoMode mode)
 {
 	gizmoMode = mode;
-	emit onGizmoModeChanged();
+	emit onGizmoModeChanged(mode);
 }
 
 void CEditorWindow::SetTool(IEditorTool* tool)
@@ -533,6 +789,81 @@ void CEditorWindow::mousePick(const FRay& ray, bool bIsRightMouse)
 	}
 }
 
+void CEditorWindow::deleteSelected()
+{
+	auto selected = gEditorEngine->selectedObjects;
+	for (auto obj : selected)
+	{
+		// we only allow deleting of entities for now.
+		if (auto ent = CastChecked<CEntity>(obj); ent)
+		{
+			if (obj == gEditorEngine->activeObject)
+				gEditorEngine->activeObject = nullptr;
+
+			gEditorEngine->RemoveSelectedObject(obj);
+			obj->Delete();
+
+			// TODO: add undo for this.
+		}
+	}
+}
+
+void CEditorWindow::hideGizmos()
+{
+	showGizmos(false);
+}
+
+void CEditorWindow::showGizmos(bool v)
+{
+	for (int i = 0; i < 4; i++)
+	{
+		if (worldViewports[i])
+		{
+			auto* cam = worldViewports[i]->GetCamera();
+			if (v)
+				cam->layers = (ERenderLayer)(cam->layers | R_LAYER_EDITOR);
+			else
+				cam->layers = (ERenderLayer)(cam->layers & (~R_LAYER_EDITOR));
+		}
+	}
+	gEditorEngine->bDrawGizmos = v;
+}
+
+void CEditorWindow::toggleSelectionVis()
+{
+	auto ents = gEditorEngine->GetSelectedObjects<CEntity>();
+	if (ents.Size() == 0)
+		return;
+
+	bool bVis = ents[0]->bIsVisible ^ 1;
+	for (auto ent : ents)
+		ent->bIsVisible = bVis;
+}
+
+void CEditorWindow::focusOnSelection()
+{
+	auto ents = gEditorEngine->GetSelectedObjects<CEntity>();
+	if (ents.Size() == 0)
+		return;
+
+	FBounds b ;
+	for (auto* ent : ents)
+		b = b.Combine(ent->GetBounds());
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (!worldViewports[i] || !worldViewports[i]->GetCamera())
+			continue;
+		
+		// only affect perspective viewports
+		if (worldViewports[i]->GetViewMode() != Cam3DPerspective)
+			continue;
+
+		auto* cam = worldViewports[i]->GetCamera();
+		cam->position = b.position - cam->GetForwardVector() * FMath::Max(b.extents.Magnitude() * 1.5f, 1.f);
+	}
+}
+
 void CEditorWindow::closeEvent(QCloseEvent* event)
 {
 	if (!gIsRunning || CToolsWindow::CloseAll(this))
@@ -661,19 +992,7 @@ bool CEditorWindow::SaveScene()
 			return false;
 	}
 
-	gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-		gWorld->Save();
-
-		CFStream sdkStream = gWorld->GetScene()->File()->GetSdkStream(".meta", "wb");
-		if (sdkStream.IsOpen())
-		{
-			FVector camPos = gEditorEngine->viewportCams[0]->position;
-			FQuaternion camRot = gEditorEngine->viewportCams[0]->rotation;
-
-			sdkStream << &camPos << &camRot;
-			sdkStream.Close();
-		}
-	});
+	gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() { gEditorEngine->OnSaveScene(); });
 
 	sceneUndoStack->setClean();
 	emit onSaveScene();
@@ -828,4 +1147,13 @@ void CEditorWindow::SetTheme(const FString& themeName)
 const TArray<FString>& CEditorWindow::GetAvailableThemes()
 {
 	return availableThemes;
+}
+
+FThreadEvent::FThreadEvent(std::function<void()> f) : QEvent((QEvent::Type)EditorEvents_ThreadEvent), func(f)
+{
+}
+
+void FThreadEvent::Invoke()
+{
+	func();
 }

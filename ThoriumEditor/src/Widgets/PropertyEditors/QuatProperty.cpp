@@ -17,7 +17,7 @@ CQuatProperty::CQuatProperty(FQuaternion* v, const FString& name, QWidget* paren
 	layout->addWidget(label);
 	layout->addStretch(0);
 
-	FVector euler = v->ToEuler();
+	FVector euler = v->ToEuler().Degrees();
 
 	for (uint8 i = 0; i < 3; i++)
 	{
@@ -51,6 +51,7 @@ void CQuatProperty::Update()
 	if (!value)
 		return;
 
+	blockSignals(true);
 	if (cache != *value)
 	{
 		FVector euler = value->ToEuler().Degrees();
@@ -58,8 +59,10 @@ void CQuatProperty::Update()
 		editors[0]->setValue(euler.x);
 		editors[1]->setValue(euler.y);
 		editors[2]->setValue(euler.z);
+		cacheEuler = euler;
 		cache = *value;
 	}
+	blockSignals(false);
 }
 
 void CQuatProperty::Changed()
@@ -107,11 +110,24 @@ void CQuatProperty::Changed()
 	euler.y = editors[1]->value();
 	euler.z = editors[2]->value();
 
-	FQuaternion q = FQuaternion::EulerAngles(euler.Radians());
-	if (*value == q)
+	if (euler == cacheEuler)
 		return;
+
+	int8 axis = 0;
+	if (euler.y != cacheEuler.y)
+		axis = 1;
+	
+	FVector delta = euler - cacheEuler;
+
+	FQuaternion q;
+	if (axis == 1)
+		q = FQuaternion::EulerAngles(delta.Radians()) * (*value);
+	else
+		q = (*value) * FQuaternion::EulerAngles(delta.Radians());
+
 	curUndoCmd = new Undo((undoName + " Value Edited").c_str(), value, *value, q);
 	cache = q;
+	cacheEuler = euler;
 	*value = q;
 	emit(OnValueChanged());
 }

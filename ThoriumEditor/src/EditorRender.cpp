@@ -38,81 +38,83 @@ void CEditorEngine::DoEditorRender()
 		return;
 
 	CRenderScene* scene = gWorld->GetRenderScene();
-	CCameraProxy* camera = viewportCams[0];
-
-	IFrameBuffer* renderTarget = camera->renderTarget ? camera->renderTarget : scene->frameBuffer;
-	if (!renderTarget)
-		return;
-
-	int viewWidth, viewHeight;
-	renderTarget->GetSize(viewWidth, viewHeight);
-
-	if (scene->depth)
-		scene->depth->Clear();
-
-	static TArray<TPair<CPrimitiveProxy*, FMeshBuilder::FRenderMesh>> meshes;
-	meshes.Clear();
-
-	//static TArray<CPrimitiveComponent*> comps;
-
-	for (TObjectPtr<CObject> object : selectedObjects)
+	for (int i = 0; i < 4; i++)
 	{
-		auto ent = Cast<CEntity>(object);
-		if (!ent)
-			continue;
+		CCameraProxy* camera = viewportCams[i];
 
-		auto& comps = ent->GetAllComponents();
+		IFrameBuffer* renderTarget = camera->renderTarget ? camera->renderTarget : scene->frameBuffer;
+		if (!renderTarget)
+			return;
 
-		for (auto c : comps)
+		int viewWidth, viewHeight;
+		renderTarget->GetSize(viewWidth, viewHeight);
+
+		if (scene->depth)
+			scene->depth->Clear();
+
+		static TArray<TPair<CPrimitiveProxy*, FMeshBuilder::FRenderMesh>> meshes;
+		meshes.Clear();
+
+		//static TArray<CPrimitiveComponent*> comps;
+
+		for (TObjectPtr<CObject> object : selectedObjects)
 		{
-			auto comp = Cast<CPrimitiveComponent>(c.second);
-			if (!comp)
+			auto ent = Cast<CEntity>(object);
+			if (!ent)
 				continue;
 
-			auto* proxy = comp->PrimitiveProxy();
+			auto& comps = ent->GetAllComponents();
 
-			static TArray<FMeshBuilder::FRenderMesh> meshList;
-			meshList.Clear();
+			for (auto c : comps)
+			{
+				auto comp = Cast<CPrimitiveComponent>(c.second);
+				if (!comp)
+					continue;
 
-			if (!proxy->IsVisible())
-				continue;
+				auto* proxy = comp->PrimitiveProxy();
 
-			//meshes.Add({ proxy, FMeshBuilder() });
-			//FMeshBuilder& mesh = meshes.last()->Value;
-			FMeshBuilder mesh(&meshList);
+				static TArray<FMeshBuilder::FRenderMesh> meshList;
+				meshList.Clear();
 
-			proxy->GetStaticMeshes(mesh);
-			proxy->GetSkinnedMeshes(mesh);
+				if (!proxy->IsVisible())
+					continue;
 
-			for (auto& m : meshList)
-				meshes.Add({ proxy, std::move(m) });
-			meshList.Clear();
+				//meshes.Add({ proxy, FMeshBuilder() });
+				//FMeshBuilder& mesh = meshes.last()->Value;
+				FMeshBuilder mesh(&meshList);
+
+				proxy->GetStaticMeshes(mesh);
+				proxy->GetSkinnedMeshes(mesh);
+
+				for (auto& m : meshList)
+					meshes.Add({ proxy, std::move(m) });
+				meshList.Clear();
+			}
 		}
-	}
 
-	FMatrix camMatrix = camera->projection * camera->view;
-	FSceneInfoBuffer sceneInfo{ camMatrix, camera->view, camera->projection,
-		camMatrix.Inverse(), camera->view.Inverse(), camera->projection.Inverse(),
-		camera->position, 0u, camera->GetForwardVector(), 0u, scene->GetTime(), 1.0f, 1.6f, 0,
-		FVector2((float)viewWidth, (float)viewHeight) / FVector2((float)scene->GetFrameBufferWidth(), (float)scene->GetFrameBufferHeight()),
-		FVector2(viewWidth, viewHeight)
-	};
-	sceneBuffer->Update(sizeof(FSceneInfoBuffer), &sceneInfo);
+		FMatrix camMatrix = camera->projection * camera->view;
+		FSceneInfoBuffer sceneInfo{ camMatrix, camera->view, camera->projection,
+			camMatrix.Inverse(), camera->view.Inverse(), camera->projection.Inverse(),
+			camera->position, 0u, camera->GetForwardVector(), 0u, scene->GetTime(), 1.0f, 1.6f, 0,
+			FVector2((float)viewWidth, (float)viewHeight) / FVector2((float)scene->GetFrameBufferWidth(), (float)scene->GetFrameBufferHeight()),
+			FVector2(viewWidth, viewHeight)
+		};
+		sceneBuffer->Update(sizeof(FSceneInfoBuffer), &sceneInfo);
 
-	gGHI->SetViewport(0.f, 0.f, (float)viewWidth, (float)viewHeight);
-	gGHI->SetFrameBuffer(renderTarget);
+		gGHI->SetViewport(0.f, 0.f, (float)viewWidth, (float)viewHeight);
+		gGHI->SetFrameBuffer(renderTarget);
 
-	gGHI->SetShaderBuffer(sceneBuffer, 1);
-	gGHI->SetShaderBuffer(objectBuffer, 3);
+		gGHI->SetShaderBuffer(sceneBuffer, 1);
+		gGHI->SetShaderBuffer(objectBuffer, 3);
 
-	gGHI->SetShaderResource(scene->preTranslucentBuff, 3);
-	gGHI->SetShaderResource(scene->depthTex, 2);
+		gGHI->SetShaderResource(scene->preTranslucentBuff, 3);
+		gGHI->SetShaderResource(scene->depthTex, 2);
 
-	for (auto& obj : meshes)
-	{
-		auto& mesh = obj.Value;
-		//for (auto& mesh : obj.Value)
-		//{
+		for (auto& obj : meshes)
+		{
+			auto& mesh = obj.Value;
+			//for (auto& mesh : obj.Value)
+			//{
 			FObjectInfoBuffer objectInfo;
 			objectInfo.transform = mesh.transform;
 			objectInfo.position = obj.Key->GetPosition();
@@ -125,8 +127,9 @@ void CEditorEngine::DoEditorRender()
 			//gGHI->SetVsShader(_shader);
 			gGHI->SetVsShader(shaderSelectOverlay->GetShader(mesh.mesh.bSkinnedMesh ? ShaderType_VertexSkinned : ShaderType_Vertex));
 			gGHI->SetPsShader(shaderSelectOverlay->GetShader(ShaderType_Fragment));
-			
+
 			gGHI->DrawMesh(&mesh);
-		//}
+			//}
+		}
 	}
 }

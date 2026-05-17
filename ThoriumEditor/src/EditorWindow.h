@@ -29,6 +29,18 @@ class CMainDockWidget;
 extern EDITOR_API CEditorWindow* gEditorWindow;
 extern EDITOR_API CEditorVar evEditorTheme;
 
+// used to call functions on the main thread from other threads.
+class EDITOR_API FThreadEvent : public QEvent
+{
+public:
+	FThreadEvent(std::function<void()> func);
+
+	void Invoke();
+
+private:
+	std::function<void()> func;
+};
+
 class EDITOR_API CEditorWindow : public CToolsWindow
 {
 	Q_OBJECT
@@ -72,7 +84,7 @@ public:
 	static const TArray<FString>& GetAvailableThemes();
 
 signals:
-	void onGizmoModeChanged();
+	void onGizmoModeChanged(EGizmoMode);
 	void onToolChanged();
 	void onSaveScene();
 
@@ -83,6 +95,14 @@ public slots:
 	void updateTitle();
 
 	void mousePick(const FRay& ray, bool bIsRightMouse);
+
+	void deleteSelected();
+
+	void hideGizmos();
+	void showGizmos(bool v = true);
+
+	void toggleSelectionVis();
+	void focusOnSelection();
 
 protected:
 	void closeEvent(QCloseEvent* event) override;
@@ -96,12 +116,15 @@ protected:
 	void UserSaveState(QSettings& out) override;
 	void UserRestoreState(QSettings& in) override;
 
-public:
-	//QMenuBar* sceneMenuBar;
-	//ads::CDockManager* sceneDockManager;
+	bool eventFilter(QObject* obj, QEvent* ev) override;
+	void showEvent(QShowEvent* ev) override;
 
+	bool event(QEvent* e) override;
+
+	QWidget* MakeViewportWidget(CViewportWidget* viewport);
+
+public:
 	// Windows
-	//CMainDockWidget* sceneWnd; // the main dock widget for the scene, contains the menu and toolbars
 	CConsoleWidget* consoleWindow;
 	ads::CDockWidget* contentBrowser;
 	CContentBrowserWidget* contentBrowserWidget;
@@ -122,9 +145,11 @@ public:
 	QMenu* menuDebug;
 	QMenu* menuHelp;
 
+	QToolBar* tbGrid;
 	QToolBar* tbScene;
 	QToolBar* tbTool;
 	QToolBar* tbGizmoMode;
+	QToolBar* tbView;
 	QToolBar* tbGame;
 
 	QComboBox* comboActiveTool;
@@ -140,6 +165,10 @@ public:
 	QAction* actFocusObj;
 	QAction* actToggleVisObj;
 
+	QAction* actShowGrid;
+	QAction* actGridSnap;
+	QAction* actAngleSnap;
+
 	QActionGroup* actGroupGizmo;
 	QAction* actGizmoSelect;
 	QAction* actGizmoTranslate;
@@ -147,12 +176,19 @@ public:
 	QAction* actGizmoScale;
 	QAction* actGizmoBounds;
 
+	QAction* actDrawGrid;
+	QAction* actDrawBounds;
+	QAction* actDrawOverlay;
+	QAction* actDrawGizmos;
+
 	QAction* actGamePlay;
 	QAction* actGamePause;
 	QAction* actGameStep;
 
 	CViewportWidget* worldViewports[4] = { nullptr };
 	CRenderWidget* gameViewport = nullptr;
+
+	CViewportWidget* activeViewport = nullptr;
 
 private:
 	IEditorTool* activeTool = nullptr;

@@ -73,6 +73,8 @@ int main(int argc, char** argv)
 #endif
 {
 #ifdef _WIN32
+	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+
 #ifdef IS_DEV
 	if (!IsDebuggerPresent())
 	{

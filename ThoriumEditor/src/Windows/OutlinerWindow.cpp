@@ -8,6 +8,7 @@
 #include "Assets/Scene.h"
 #include "UndoActions/SceneUndoActions.h"
 #include <Util/Map.h>
+#include <Util/KeyValue.h>
 
 #include <QLineEdit>
 #include <QTreeWidget>
@@ -21,7 +22,10 @@
 class COutlinerTreeWidget : public QTreeWidget
 {
 public:
-	COutlinerTreeWidget(QWidget* parent = nullptr) : QTreeWidget(parent) {}
+	COutlinerTreeWidget(QWidget* parent = nullptr) : QTreeWidget(parent) 
+	{
+		outliner = qobject_cast<COutlinerWindow*>(parent);
+	}
 
 protected:
 	void dragEnterEvent(QDragEnterEvent* event);
@@ -29,7 +33,7 @@ protected:
 
 private:
 	QTreeWidgetItem* draggedItem = nullptr;
-
+	COutlinerWindow* outliner = nullptr;
 };
 
 void COutlinerTreeWidget::dragEnterEvent(QDragEnterEvent* event)
@@ -48,15 +52,19 @@ void COutlinerTreeWidget::dropEvent(QDropEvent* event)
 			if (draggedItem->data(1, Qt::UserRole).toInt() == EItemTypes_Entity)
 			{
 				CEntity* ent = (CEntity*)draggedItem->data(0, Qt::UserRole).value<SizeType>();
-				CSceneComponent* prevParent = ent->RootComponent()->GetParent();
-				ent->RootComponent()->Detach();
-
-				gEditorWindow->sceneUndoStack->push(new CmdReparentComponent(ent->RootComponent(), prevParent));
-
 				if (draggedItem->parent()->data(1, Qt::UserRole).toInt() == EItemTypes_Folder)
 				{
 					draggedItem->parent()->removeChild(draggedItem);
-					addTopLevelItem(draggedItem);
+					outliner->sceneItem->addChild(draggedItem);
+
+					outliner->entityFolderLut.erase(ent->EntityId());
+				}
+				else
+				{
+					CSceneComponent* prevParent = ent->RootComponent()->GetParent();
+					ent->RootComponent()->Detach();
+
+					gEditorWindow->sceneUndoStack->push(new CmdReparentComponent(ent->RootComponent(), prevParent));
 				}
 			}
 			else if (draggedItem->data(1, Qt::UserRole).toInt() == EItemTypes_Folder)
@@ -64,7 +72,8 @@ void COutlinerTreeWidget::dropEvent(QDropEvent* event)
 				if (draggedItem->parent())
 				{
 					draggedItem->parent()->removeChild(draggedItem);
-					addTopLevelItem(draggedItem);
+					//addTopLevelItem(draggedItem);
+					outliner->sceneItem->addChild(draggedItem);
 				}
 			}
 		}
@@ -80,9 +89,12 @@ void COutlinerTreeWidget::dropEvent(QDropEvent* event)
 			{
 				CEntity* ent = (CEntity*)draggedItem->data(0, Qt::UserRole).value<SizeType>();
 				CSceneComponent* prevParent = ent->RootComponent()->GetParent();
-				ent->RootComponent()->AttachTo(((CEntity*)targetItem->data(0, Qt::UserRole).value<SizeType>())->RootComponent());
-
-				gEditorWindow->sceneUndoStack->push(new CmdReparentComponent(ent->RootComponent(), prevParent));
+				CEntity* target = (CEntity*)targetItem->data(0, Qt::UserRole).value<SizeType>();
+				if (target->GetWorld() == ent->GetWorld())
+				{
+					ent->RootComponent()->AttachTo(target->RootComponent());
+					gEditorWindow->sceneUndoStack->push(new CmdReparentComponent(ent->RootComponent(), prevParent));
+				}
 			}
 			else if (targetItem->data(1, Qt::UserRole).toInt() == EItemTypes_Folder)
 			{
@@ -92,6 +104,8 @@ void COutlinerTreeWidget::dropEvent(QDropEvent* event)
 					invisibleRootItem()->removeChild(draggedItem);
 
 				targetItem->addChild(draggedItem);
+				CEntity* ent = (CEntity*)draggedItem->data(0, Qt::UserRole).value<SizeType>();
+				outliner->entityFolderLut[ent->EntityId()] = targetItem;
 			}
 		}
 	}
@@ -209,7 +223,8 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 				folder->setData(1, Qt::UserRole, QVariant(EItemTypes_Folder));
 				folder->setFlags(folder->flags() | Qt::ItemIsEditable);
 				
-				outlinerTree->addTopLevelItem(folder);
+				//outlinerTree->addTopLevelItem(folder);
+				sceneItem->addChild(folder);
 				outlinerTree->editItem(folder, 0);
 			});
 			menu.addAction(QIcon(":/icons/entity.svg"), "New Entity...", this, [=]() { gEditorWindow->CreateEntityPopup(); });
@@ -239,6 +254,8 @@ COutlinerWindow::COutlinerWindow(QWidget* parent /*= nullptr*/) : ads::CDockWidg
 
 	//connect(gEngineThread, &CEngineThread::onUpdate, this, &COutlinerWindow::Update);
 	connect(gEngineThread, &CEngineThread::onSelectionChanged, this, &COutlinerWindow::selectionChanged);
+	connect(gEditorWindow, &CEditorWindow::onSaveScene, this, &COutlinerWindow::SaveSceneTree);
+	connect(gEngineThread, &CEngineThread::onLevelChanged, this, &COutlinerWindow::LoadSceneTree);
 }
 
 COutlinerWindow::~COutlinerWindow()
@@ -298,16 +315,17 @@ void COutlinerWindow::Update()
 			auto owner = ent->GetOwner<CEntity>();
 			if (owner)
 				entItem = new QTreeWidgetItem(entityItems[owner->EntityId()]);
-				//entItem = new TTreeDataItem<CEntity*>(ent, entityItems[owner->EntityId()]);
 			else
 				entItem = new QTreeWidgetItem();
-				//entItem = new TTreeDataItem<CEntity*>(ent, 0);
 
 			entItem->setFlags(entItem->flags() | Qt::ItemIsEditable);
 			entItem->setData(0, Qt::UserRole, QVariant((SizeType)ent));
 			entItem->setData(1, Qt::UserRole, QVariant(EItemTypes_Entity));
 			entItem->setText(0, ent->Name().c_str());
 			entItem->setText(1, ent->GetClass()->GetName().c_str());
+
+			if (auto it = entityFolderLut.find(ent->EntityId()); it != entityFolderLut.end())
+				it->second->addChild(entItem);
 
 			entityItems[ent->EntityId()] = entItem;
 			if (!ent->RootComponent() || ent->RootComponent()->GetParent() == nullptr)
@@ -347,8 +365,6 @@ void COutlinerWindow::Update()
 
 void COutlinerWindow::selectionChanged()
 {
-	//auto& selected = gEditorEngine()->selectedObjects;
-
 	outlinerTree->blockSignals(true);
 	for (auto it : entityItems)
 	{
@@ -356,6 +372,122 @@ void COutlinerWindow::selectionChanged()
 			it.second->setSelected(gEditorEngine->IsObjectSelected((CEntity*)it.second->data(0, Qt::UserRole).value<SizeType>()));
 	}
 	outlinerTree->blockSignals(false);
+}
+
+void ReadFolderTree(KVCategory* in, FOutlinerFolder* out)
+{
+	for (auto* c : in->GetCategories())
+	{
+		out->children.Add();
+		FOutlinerFolder& f = *out->children.last();
+		f.name = c->GetName();
+		ReadFolderTree(c, &f);
+	}
+
+	auto* ents = in->GetArray("entities");
+	if (!ents)
+		return;
+
+	for (auto& ent : *ents)
+		out->entities.Add(std::stoull(ent.c_str()));
+}
+
+void AddFolderToTree(FOutlinerFolder* folder, QTreeWidgetItem* parent, TMap<SizeType, QTreeWidgetItem*>& outLut)
+{
+	auto* item = new QTreeWidgetItem(parent);
+	item->setIcon(0, QIcon(":/icons/folder-small.svg"));
+	item->setText(0, folder->name.c_str());
+	item->setText(1, "Folder");
+	item->setData(1, Qt::UserRole, QVariant(EItemTypes_Folder));
+	item->setFlags(item->flags() | Qt::ItemIsEditable);
+
+	for (auto& ent : folder->entities)
+		outLut[ent] = item;
+
+	for (auto& f : folder->children)
+		AddFolderToTree(&f, item, outLut);
+}
+
+void COutlinerWindow::LoadSceneTree()
+{
+	Clear();
+
+	if (!gWorld->GetScene() || !gWorld->GetScene()->File())
+		return;
+
+	FKeyValue kv(gWorld->GetScene()->File()->GetSdkPath(".meta"));
+	if (!kv.IsOpen())
+		return;
+
+	auto* folders = kv.GetCategory("folders");
+	if (!folders)
+		return;
+
+	FOutlinerFolder root;
+	ReadFolderTree(folders, &root);
+	for (auto& c : root.children)
+		AddFolderToTree(&c, sceneItem, entityFolderLut);
+}
+
+void BuildFolderTree(QTreeWidgetItem* item, FOutlinerFolder* out)
+{
+	for (int i = 0; i < item->childCount(); i++)
+	{
+		auto* child = item->child(i);
+		if (child->data(1, Qt::UserRole).toInt() == EItemTypes_Folder)
+		{
+			FOutlinerFolder folder;
+			BuildFolderTree(child, &folder);
+			folder.item = child;
+
+			out->children.Add(folder);
+		}
+
+		if (child->data(1, Qt::UserRole).toInt() == EItemTypes_Entity)
+		{
+			CEntity* ent = (CEntity*)child->data(0, Qt::UserRole).value<SizeType>();
+			out->entities.Add(ent->EntityId());
+		}
+	}
+}
+
+void WriteFolderTree(FOutlinerFolder* folder, KVCategory* out)
+{
+	for (auto& f : folder->children)
+	{
+		FString name = f.item->text(0).toStdString().c_str();
+		auto* cat = out->GetCategory(name, true);
+		WriteFolderTree(&f, cat);
+	}
+
+	if (folder->entities.Size() == 0)
+		return;
+
+	auto* arr = out->GetArray("entities", true);
+
+	for (auto& ent : folder->entities)
+		arr->Add(FString::ToString(ent));
+}
+
+void COutlinerWindow::SaveSceneTree()
+{
+	while (gWorld->GetScene() == nullptr || gWorld->GetScene()->File() == nullptr)
+	{
+		// wait in case the scene hasn't actually been saved yet.
+		QThread::currentThread()->msleep(1);
+	}
+
+	// Build folder tree
+	FOutlinerFolder root;
+	BuildFolderTree(sceneItem, &root);
+	root.entities.Clear();
+
+	FKeyValue kv(gWorld->GetScene()->File()->GetSdkPath(".meta"));
+
+	auto* folders = kv.GetCategory("folders", true);
+	WriteFolderTree(&root, folders);
+
+	kv.Save();
 }
 
 void COutlinerWindow::Clear()
@@ -372,5 +504,11 @@ void COutlinerWindow::Clear()
 			outlinerTree->invisibleRootItem()->removeChild(it->second);
 	}
 	entityItems.clear();
+	entityFolderLut.clear();
+
+	auto children = sceneItem->takeChildren();
+	for (auto* c : children)
+		delete c;
+
 	outlinerTree->blockSignals(false);
 }

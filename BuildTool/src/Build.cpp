@@ -163,11 +163,12 @@ void GetCppFilesInDir(FKeyValue& buildCfg, const FString& source, TArray<FString
 
 		bool bIsSource = entry.path().extension() == ".cpp" || entry.path().extension() == ".c";
 		bool bIsHeader = entry.path().extension() == ".hpp" || entry.path().extension() == ".h";
+		bool bIsObjectFile = entry.path().extension() == ".o";
 
 		if (bIsHeader && !bIncludeHeaders)
 			continue;
 		
-		if (!bIsSource && !bIsHeader)
+		if (!bIsSource && !bIsHeader && !bIsObjectFile)
 			continue;
 
 		FString path = entry.path().generic_string().c_str();

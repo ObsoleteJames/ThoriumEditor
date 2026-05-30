@@ -11,6 +11,7 @@
 #include "Assets/Scene.h"
 #include "EditorConfig.h"
 #include "System.h"
+#include "EditorPlugins.h"
 
 #include <Util/KeyValue.h>
 
@@ -188,6 +189,7 @@ int CEditorEngine::Run()
 void CEditorEngine::OnExit()
 {
 	CEditorVar::Save();
+	CEditorPlugins::Exit();
 
 	CEngine::OnExit();
 }

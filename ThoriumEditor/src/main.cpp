@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "EditorWindow.h"
 #include "EngineThread.h"
+#include "EditorPlugins.h"
 #include "Misc/CommandLine.h"
 #include "System.h"
 #include "ProjectManagerWindow.h"
@@ -101,6 +102,10 @@ int main(int argc, char** argv)
 
 	CEditorVar::Load();
 	CEditorWindow::LoadStyleSheet();
+
+	// Load editor plugins
+	// ::Exit() is handled by the Engine object.
+	CEditorPlugins::Init();
 
 	FKeyValue kv(SSystem::GetDataPath() + "/ThoriumEngine/EditorConfig/Editor.cfg");
 	if (kv.IsOpen())

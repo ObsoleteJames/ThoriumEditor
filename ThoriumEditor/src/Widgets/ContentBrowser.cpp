@@ -39,6 +39,17 @@ FAssetBrowserAction::FAssetBrowserAction()
 	_Actions().Add(this);
 }
 
+FAssetBrowserAction::FActionList FAssetBrowserAction::GetActions(EBrowserActionType type)
+{
+	FActionList r;
+	for (auto* a : _Actions())
+	{
+		if (a->Type() == type)
+			r.Add(a);
+	}
+	return r;
+}
+
 FAssetBrowserAction* FAssetBrowserAction::GetAction(FAssetClass* target, EBrowserActionType type /*= BA_INVALID*/)
 {
 	for (auto* action : _Actions())
@@ -60,6 +71,11 @@ FAssetBrowserAction::FActionList& FAssetBrowserAction::_Actions()
 {
 	static FActionList actions;
 	return actions;
+}
+
+FAssetImportAction::FAssetImportAction() : FAssetBrowserAction()
+{
+	type = BA_FILE_IMPORT;
 }
 
 class CAssetList : public QListWidget
@@ -742,58 +758,56 @@ void CContentBrowserWidget::ImportAsset()
 {
 	FString filter;
 	TArray<FAssetClass*> importableClasses;
-	for (CModule* m : CModuleManager::GetModules())
+	QMap<QString, FAssetImportAction*> importTypes;
+
+	auto importers = FAssetBrowserAction::GetActions(BA_FILE_IMPORT);
+	for (auto* i : importers)
 	{
-		/*for (FAssetClass* c : m->Assets)
-		{
-			if (c->ImportableAs().IsEmpty())
-				continue;
+		TArray<FString> imports = ((FAssetImportAction*)i)->GetImportableTypes().Split(';');
 
-			TArray<FString> imports = c->ImportableAs().Split(';');
+		// register the extension.
+		for (auto& t : imports)
+			importTypes[t.c_str()] = (FAssetImportAction*)i;
 
-			filter += c->GetName();
-			filter += " (";
+		filter += i->TargetClass()->GetName();
+		filter += " (";
 
-			for (auto& i : imports)
-				filter += "*" + i + " ";
+		for (auto& i : imports)
+			filter += "*" + i + " ";
 
-			filter.Erase(filter.last());
-			filter += ");;";
-			importableClasses.Add(c);
-		}*/
+		filter.Erase(filter.last());
+		filter += ");;";
+		importableClasses.Add(i->TargetClass());
 	}
 
 	filter += "All Files (*.*)";
 
-	QStringList file = QFileDialog::getOpenFileNames(this, "Select File...", QString(), filter.c_str());
-	if (file.isEmpty())
+	QStringList files = QFileDialog::getOpenFileNames(this, "Select File...", QString(), filter.c_str());
+	if (files.isEmpty())
 		return;
 
-	FString ext = file[0].toStdString();
-	ext.Erase(ext.begin(), ext.begin() + ext.FindLastOf('.'));
+	TMap<FAssetBrowserAction*, TArray<FString>> groupedFiles;
 
-	FAssetClass* targetClass = nullptr;
-
-	// Figure out what the selected file's type is.
-	for (auto* c : importableClasses)
+	for (auto& f : files)
 	{
-		/*TArray<FString> exts = c->ImportableAs().Split(';');
+		FString file = f.toStdString();
+		QString ext = f;
 
-		for (auto& x : exts)
-		{
-			if (x == ext)
-			{
-				targetClass = c;
-				break;
-			}
-		}
+		if (auto i = ext.lastIndexOf('.'); i != -1)
+			ext.erase(ext.begin(), ext.begin() + i);
 
-		if (targetClass)
-			break;*/
+		groupedFiles[importTypes[ext]].Add(file);
 	}
 
-	if (!targetClass)
-		return;
+	for (auto& action : groupedFiles)
+	{
+		FBAImportFile data{};
+		data.sourceFiles = action.second;
+		data.browser = this;
+		data.outMod = GetMod();
+		data.outPath = GetDirectory();
+		action.first->Invoke(&data);
+	}
 
 	/*FString dir = curDir;
 	FString mod = curDir;

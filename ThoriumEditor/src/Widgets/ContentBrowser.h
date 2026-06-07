@@ -69,7 +69,7 @@ struct FBADataDuplicate : public FBADataBase
 };
 struct FBAImportFile : public FBADataBase
 {
-	FString sourceFile;
+	TArray<FString> sourceFiles;
 	FString outPath;
 	FString outMod;
 };
@@ -94,7 +94,7 @@ public:
 	inline FAssetClass* TargetClass() const { return targetClass; }
 
 	inline static const FActionList& GetActions() { return _Actions(); }
-
+	static FActionList GetActions(EBrowserActionType type);
 	static FAssetBrowserAction* GetAction(FAssetClass* target, EBrowserActionType type = BA_INVALID);
 
 private:
@@ -103,6 +103,17 @@ private:
 protected:
 	EBrowserActionType type;
 	FAssetClass* targetClass;
+};
+
+class EDITOR_API FAssetImportAction : public FAssetBrowserAction
+{
+public:
+	FAssetImportAction();
+
+	inline const FString& GetImportableTypes() const { return importableTypes; }
+
+protected:
+	FString importableTypes;
 };
 
 /*

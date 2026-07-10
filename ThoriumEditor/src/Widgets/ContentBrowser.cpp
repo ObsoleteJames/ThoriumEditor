@@ -907,18 +907,24 @@ void CContentBrowserWidget::OnAssetUpdate()
 	fileTree->clear();
 
 	const TArray<FMod*>& mods = CFileSystem::GetMods();
-	for (auto* m : mods)
+	for (auto it = mods.rbegin(); it != mods.rend(); it++)
 	{
+		FMod* m = *it;
+
 		QTreeWidgetItem* item = new QTreeWidgetItem(fileTree, EItemTypes_ModFolder);
 		item->setText(0, QString(m->Name().c_str()));
+		item->setExpanded(true);
 
 		if (m->Name() == "Engine")
+		{
+			if (mods.Size() > 1)
+				item->setExpanded(false);
 			item->setIcon(0, QIcon(":/icons/engine-icon-small.svg"));
+		}
 		else
 			item->setIcon(0, QIcon(":/icons/folder-blue.svg"));
 
 		//item->setIcon(0, gEditorEngine()->GetIcon("folder-blue.svg"));
-		item->setExpanded(true);
 
 		for (auto* d : m->GetRootDir()->GetSubDirectories())
 			AddDirToTree(m, d, item);

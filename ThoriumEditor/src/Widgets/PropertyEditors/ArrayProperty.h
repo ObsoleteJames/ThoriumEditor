@@ -5,6 +5,7 @@
 #include "Widgets/PropertyEditor.h"
 
 struct FProperty;
+class QBoxLayout;
 class FArrayPropertyHandler;
 
 class CArrayProperty : public IBasePropertyEditor
@@ -25,6 +26,7 @@ private:
 	TUniquePtr<FArrayPropertyHandler> handler;
 
 	QWidget* content;
+	QBoxLayout* cl;
 	TArray<IBasePropertyEditor*> editors;
 	FString typeName;
 

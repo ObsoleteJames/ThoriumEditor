@@ -27,7 +27,7 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 	header->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 	//header->GetHeader()->setMinimumHeight(32);
 	content = new QWidget(header);
-	QVBoxLayout* cl = new QVBoxLayout(content);
+	cl = new QVBoxLayout(content);
 	cl->setContentsMargins(16, 0, 0, 0);
 	cl->setSpacing(0);
 	header->SetWidget(content);
@@ -38,12 +38,13 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 
 	QPushButton* btnAdd = new QPushButton("+", this);
 	btnAdd->setProperty("type", QVariant("clear"));
-	//cl->addStretch(0);
+	cl->addStretch(0);
 	cl->addWidget(btnAdd);
 
-	connect(btnAdd, &QPushButton::clicked, this, [=]() { 
-		gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
-			handler->Add();
+	connect(btnAdd, &QPushButton::released, this, [=]() { 
+		//gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
+		//});
+			//handler->Add();
 
 			class Undo : public QUndoCommand
 			{
@@ -84,10 +85,8 @@ CArrayProperty::CArrayProperty(void* ptr, const FProperty* p, QWidget* parent) :
 				void* obj;
 			};
 			curUndoCmd = new Undo((property->name + " Add Item").c_str(), obj, property, handler);
-
 			emit(OnValueChanged());
 			UpdateList();
-		});
 	});
 
 	UpdateList();
@@ -103,7 +102,8 @@ void CArrayProperty::UpdateList()
 {
 	for (auto* edit : editors)
 	{
-		content->layout()->removeWidget(edit);
+		cl->removeWidget(edit);
+		edit->deleteLater();
 	}
 	editors.Clear();
 
@@ -111,7 +111,6 @@ void CArrayProperty::UpdateList()
 	SizeType data = (SizeType)handler->Data();
 
 	// TODO: fix this, crashes or freezes when updating list.
-
 	for (SizeType i = 0; i < size; i++)
 	{
 		void* ptr = (void*)(data + (i * property->templateType[0].size));
@@ -130,12 +129,12 @@ void CArrayProperty::UpdateList()
 				l->addStretch(1);
 			}
 
-			wd->layout()->addWidget(removeBtn);
+			((QBoxLayout*)wd->layout())->addWidget(removeBtn);
 
-			content->layout()->addWidget(editor);
+			cl->addWidget(editor);
 			editors.Add(editor);
 			connect(removeBtn, &QPushButton::clicked, this, [=]() { 
-				gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
+				//gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
 					handler->Erase(i);
 
 					// TODO: reimplement later.
@@ -188,7 +187,7 @@ void CArrayProperty::UpdateList()
 
 					emit(OnValueChanged());
 					UpdateList();
-				});
+				//});
 			});
 			connect(editor, &IBasePropertyEditor::OnValueChanged, this, [=]() {
 				if (auto* cmd = editor->ProvideUndoCmd(); cmd)

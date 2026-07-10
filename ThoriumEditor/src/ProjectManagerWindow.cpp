@@ -19,6 +19,7 @@
 #include <QLineEdit>
 #include <QStandardPaths>
 #include <QCheckBox>
+#include <QThread>
 
 SDK_REGISTER_WINDOW(CProjectManagerWnd, "Project Manager", NULL, NULL);
 
@@ -34,8 +35,8 @@ CProjectManagerWnd::~CProjectManagerWnd()
 
 bool CProjectManagerWnd::CreateProject(const FString& name, const FString& path)
 {
-	QString qPath = QString((const QChar*)path.c_str());
-	QString qName = QString((const QChar*)name.c_str());
+	QString qPath = QString((const char*)path.c_str());
+	QString qName = QString((const char*)name.c_str());
 	QString projectPath = qPath + "/" + qName;
 	QDir().mkpath(projectPath);
 	QDir().mkpath(projectPath + "/config");
@@ -77,7 +78,7 @@ bool CProjectManagerWnd::CreateProject(const FString& name, const FString& path)
 		editorProj.SetValue("engine_version", ENGINE_VERSION);
 		editorProj.Save();
 	}
-	return false;
+	return true;
 }
 
 bool CProjectManagerWnd::Shutdown()
@@ -293,11 +294,16 @@ void CProjectManagerWnd::CreateNewProject()
 
 	CreateProject(projName, projDir);
 
-	/*if (!gEngine->LoadProject(projDir + "/" + projName))
-		return;*/
+	// wait for file writes.
+	QThread::currentThread()->msleep(500);
+
+	RegisterProject(projDir + "/" + projName);
 
 	if (!StartEngineThread(projDir + "/" + projName))
 	{
+		// wait for engine to be fully initialized before shutting it down again.
+		QThread::currentThread()->msleep(500);
+
 		DestroyEngineThread();
 		return;
 	}
@@ -318,6 +324,11 @@ void CProjectManagerWnd::AddProject()
 	path.Erase(path.begin() + path.FindLastOf("/\\"), path.end());
 	path.Erase(path.begin() + path.FindLastOf("/\\"), path.end());
 
+	RegisterProject(path);
+}
+
+void CProjectManagerWnd::RegisterProject(const FString& path)
+{
 	FKeyValue proj(path + "/config/project.cfg");
 	FString projectName = proj.GetValue("name")->Value;
 	FString projectDisplayName = proj.GetValue("displayName")->Value;
@@ -334,18 +345,6 @@ void CProjectManagerWnd::AddProject()
 
 	kv.Save();
 	UpdateProjectList();
-
-	//if (!StartEngineThread(path))
-	//{
-	//	DestroyEngineThread();
-	//	return;
-	//}
-
-	////gEditorEngine()->RegisterProject(gEngine->GetProjectConfig());
-	//CToolsWindow::Create<CEditorWindow>();
-
-	//close();
-	//deleteLater();
 }
 
 void CProjectManagerWnd::closeEvent(QCloseEvent* event)

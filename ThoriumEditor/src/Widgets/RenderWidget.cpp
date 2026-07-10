@@ -273,6 +273,11 @@ public:
 		OnCursorMove.Invoke((double)x, (double)y);
 	}
 
+	IInputDevice* GetInputDevice() override
+	{
+		return nullptr;
+	}
+
 	CRenderWidget* widget;
 };
 

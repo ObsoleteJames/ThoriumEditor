@@ -211,21 +211,23 @@ void CPropertiesWidget::AddComponent()
 	if (dialog.exec())
 	{
 		FClass* compClass = dialog.GetSelectedClass();
-		CEntityComponent* newComp = ent->AddComponent(compClass, compClass->GetName());
-		if (!newComp)
-			return;
+		gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {
+			CEntityComponent* newComp = ent->AddComponent(compClass, compClass->GetName());
+			if (!newComp)
+				return;
 
-		// Set the component as user created so that it can be deleted in the editor.
-		*(bool*)(((SizeType)newComp) + CEntityComponent::__private_bUserCreated_offset()) = true;
+			// Set the component as user created so that it can be deleted in the editor.
+			*(bool*)(((SizeType)newComp) + CEntityComponent::__private_bUserCreated_offset()) = true;
 
-		CSceneComponent* sceneComp = Cast<CSceneComponent>(newComp);
-		if (sceneComp)
-		{
-			if (CSceneComponent* sel = Cast<CSceneComponent>(selectedChild); selectedChild != targetObject && sel)
-				sceneComp->AttachTo(sel);
-			else
-				sceneComp->AttachTo(ent->RootComponent(), FTransformSpace::KEEP_LOCAL_TRANSFORM);
-		}
-		UpdateUI();
+			CSceneComponent* sceneComp = Cast<CSceneComponent>(newComp);
+			if (sceneComp)
+			{
+				if (CSceneComponent* sel = Cast<CSceneComponent>(selectedChild); selectedChild != targetObject && sel)
+					sceneComp->AttachTo(sel);
+				else
+					sceneComp->AttachTo(ent->RootComponent(), FTransformSpace::KEEP_LOCAL_TRANSFORM);
+			}
+			UpdateUI();
+		});
 	}
 }

@@ -34,6 +34,8 @@ protected:
 	void CreateNewProject();
 	void AddProject();
 
+	void RegisterProject(const FString& path);
+
 	void closeEvent(QCloseEvent* event) override;
 
 	void OpenProject(const FString& proj);

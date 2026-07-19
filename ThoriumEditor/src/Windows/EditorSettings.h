@@ -3,7 +3,9 @@
 #include "Windows/ToolsWindow.h"
 
 class QSplitter;
-class QTreeWidget;
+class QListWidget;
+class QStackedWidget;
+class CSettingsPage;
 
 class EDITOR_API CEditorSettingsWnd : public CToolsWindow
 {
@@ -21,16 +23,21 @@ protected:
 	void UserSaveState(QSettings& out) override;
 	void UserRestoreState(QSettings& in) override;
 
+	void AddPage(QWidget* page, const QString& title);
+	CSettingsPage* GetPage(const QString& title, bool bCreateNew = true);
+
 private slots:
 	void SwitchPage(int index);
 
 private:
-	QTreeWidget* settingsIndex;
-	QWidget* settingsView;
+	QListWidget* settingsIndex;
+	QStackedWidget* settingsView;
 	QSplitter* splitter;
 
-	QWidget* general;
-	QWidget* appearance;
+	CSettingsPage* general;
+	CSettingsPage* appearance;
+
+	TArray<CSettingsPage*> pages;
 
 	int curPage = 0;
 };

@@ -11,6 +11,8 @@
 #include "System.h"
 #include "EditorConfig.h"
 #include "ContentBrowserDelegate.h"
+#include "AssetThumbnail.h"
+#include "EngineThread.h"
 
 #include <QSplitter>
 #include <QBoxLayout>
@@ -28,11 +30,12 @@
 #include <QFileIconProvider>
 #include <QStandardItemModel>
 #include <QItemDelegate>
+#include <QPainter>
+#include <QApplication>
 
 #define ASSET_MAX_GRID_SIZE 5
 
-CEditorVar evThumbnailMaxSize("Asset Thumbnail Max Size", "Appearance", FVariant(128));
-CEditorVar evEnableThumbnails("Show Asset Thumbnails", "Appearance", FVariant(true));
+CEditorVar evEnableThumbnails("Show Asset Thumbnails", "Appearance", FVariant(true), true);
 
 FAssetBrowserAction::FAssetBrowserAction()
 {
@@ -101,6 +104,40 @@ private:
 FCBItemDelegate::FCBItemDelegate(QWidget* parent) : QStyledItemDelegate(parent)
 {
 }
+
+//void FCBItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
+//{
+//	QVariant data = index.data(Qt::DecorationRole);
+//
+//	if (data.canConvert<QPixmap>()) {
+//		QStyleOptionViewItem opt = option;
+//		initStyleOption(&opt, index);
+//
+//		opt.icon = QIcon();
+//		opt.features.setFlag(QStyleOptionViewItem::HasDecoration, false);
+//
+//		QStyle* style = opt.widget ? opt.widget->style() : QApplication::style();
+//
+//		QPixmap pixmap = qvariant_cast<QPixmap>(data);
+//
+//		QRect scaledRect = opt.rect.adjusted(16, 16, -16, -16);
+//
+//		// Scale the image to fit the current cell rectangle dynamically
+//		QPixmap scaledPixmap = pixmap.scaled(scaledRect.size(),
+//			Qt::KeepAspectRatio,
+//			Qt::SmoothTransformation);
+//
+//		// Center and paint the image inside the item cell
+//		int x = scaledRect.x() + (scaledRect.width() - scaledPixmap.width()) / 2;
+//		int y = scaledRect.y() + (scaledRect.height() - scaledPixmap.height()) / 2;
+//		painter->drawPixmap(x, y, scaledPixmap);
+//
+//		style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
+//	}
+//	else {
+//		QStyledItemDelegate::paint(painter, option, index);
+//	}
+//}
 
 void FCBItemDelegate::destroyEditor(QWidget* editor, const QModelIndex& index) const
 {
@@ -201,9 +238,9 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 	gridSizeSlider = new QSlider(Qt::Horizontal, this);
 	
 	fileTree = new QTreeWidget(this);
-	fileTree->setStyleSheet("QFrame { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #242424, stop:1 #161616); }");
+	fileTree->setProperty("type", QVariant(1));
+	//fileTree->setStyleSheet("QFrame { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #242424, stop:1 #161616); }");
 	//dirView = new CAssetList(this);
-	//dirView->setProperty("type", QVariant(2));
 	//dirView->setObjectName("CAssetBrowser::dirView");
 	//dirView->setContextMenuPolicy(Qt::CustomContextMenu);
 	//dirView->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -324,6 +361,8 @@ CContentBrowserWidget::CContentBrowserWidget(QWidget* parent /*= nullptr*/) : QW
 	});
 	connect(btnViewMode, &QPushButton::clicked, this, [=]() { bDirViewGrid ^= 1; UpdateViewSettings(); });
 	connect(gridSizeSlider, &QSlider::valueChanged, this, [=](int value) { dirViewSize = value; UpdateViewSettings(); });
+	connect(gEngineThread, &CEngineThread::onThumbnailGenerated, this, &CContentBrowserWidget::updateThumbnails);
+
 	/*connect(btnCreateAsset, &QPushButton::clicked, this, [=]() { 
 		QMenu menu;
 
@@ -443,6 +482,9 @@ void CContentBrowserWidget::dirSelectionChanged(const QItemSelection& selected, 
 
 void CContentBrowserWidget::finishEditItem(const QModelIndex& index)
 {
+	if (!index.isValid())
+		return;
+
 	CFileItem* item = (CFileItem*)dirModel->item(index.row());
 	if (item->type() == EItemTypes_Folder)
 	{
@@ -656,7 +698,7 @@ void CContentBrowserWidget::CreateContextMenu(QPoint point)
 
 			if (!type)
 			{
-				menu.addAction("Conver to Asset...");
+				menu.addAction("Convert to Asset...");
 				menu.addSeparator();
 			}
 
@@ -706,15 +748,24 @@ void CContentBrowserWidget::CreateContextMenu(QPoint point)
 			UpdateView();
 		});
 
-		if (item->type() == EItemTypes_AssetFile)
-		{
-			menu.addSeparator();
+		menu.addSeparator();
 
-			menu.addAction("Show in explorer", this, [=]() {
+		menu.addAction("Show in explorer", this, [=]() {
+			if (item->type() == EItemTypes_Folder)
+			{
+				FDirectory* d = (FDirectory*)item->data(257).toULongLong();
+				FMod* m = CFileSystem::FindMod(GetMod());
+				SSystem::OpenFileManager(m->Path() + "/" + d->GetPath());
+			}
+			else
+			{
 				FFile* f = (FFile*)item->data(257).toULongLong();
 				SSystem::OpenFileManager(f->Mod()->Path() + "/" + f->Dir()->GetPath());
-			});
+			}
+		});
 
+		if (item->type() == EItemTypes_AssetFile)
+		{
 			menu.addAction("Open in External Program", this, [=]() {
 				FFile* f = (FFile*)item->data(257).toULongLong();
 				SSystem::OpenFile(f->FullPath());
@@ -933,6 +984,20 @@ void CContentBrowserWidget::OnAssetUpdate()
 	UpdateView();
 }
 
+FString FormatSize(SizeType size)
+{
+	if (size < 1024)
+		return  FString::ToString(size) + " Bytes";
+	size /= 1024;
+	if (size < 1024)
+		return FString::ToString(size) + " kB";
+	size /= 1024;
+	if (size < 1024)
+		return FString::ToString(size) + " MB";
+	size /= 1024;
+	return FString::ToString(size) + " GB";
+}
+
 void CContentBrowserWidget::UpdateView()
 {
 	curFolderEdit->setText((mod + ":/" + dir).c_str());
@@ -968,18 +1033,52 @@ void CContentBrowserWidget::UpdateView()
 		item->setData(QVariant((SizeType)f));
 		item->setIcon(QIcon(":/icons/file.svg"));
 
+		if (type)
+		{
+			TObjectPtr<CAsset> asset = CAssetManager::GetAsset(type, f->Path());
+			auto* thumbnail = CAssetThumbnailManager::GetThumbnail(asset);
+			if (thumbnail && !thumbnail->image.isNull())
+			{
+				item->setData(thumbnail->image.scaled(24 * dirViewSize, 24 * dirViewSize), Qt::DecorationRole);
+			}
+		}
+
+		FString typeName = f->Extension();
 		if (!type)
 			item->setIcon(QFileIconProvider().icon(QFileInfo(f->FullPath().c_str())));
+		else
+			typeName = type->GetName();
 
-		FString tooltip = "Type: " + f->Extension() + "\nSize: " + FString::ToString(f->Size());
+		FString sizeT = FormatSize(f->Size());
+		FString tooltip = f->Name() + "\nType: " + typeName + "\nSize: " + sizeT;
 		item->setToolTip(QString(tooltip.c_str()));
 
-		dirModel->appendRow({ item, new QStandardItem(type ? type->GetName().c_str() : f->Extension().c_str()), new QStandardItem(QString::number(f->Size()))});
+		dirModel->appendRow({ item, new QStandardItem(typeName.c_str()), new QStandardItem(sizeT.c_str())});
 	}
 
 	dirModel->setHeaderData(0, Qt::Horizontal, "Name");
 	dirModel->setHeaderData(1, Qt::Horizontal, "Type");
 	dirModel->setHeaderData(2, Qt::Horizontal, "Size");
+}
+
+void CContentBrowserWidget::updateThumbnails()
+{
+	for (int i = 0; i < dirModel->rowCount(); i++)
+	{
+		auto* item = dirModel->item(i);
+		FFile* file = (FFile*)item->data().toULongLong();
+		FAssetClass* type = CAssetManager::GetAssetTypeByFile(file);
+
+		if (type)
+		{
+			TObjectPtr<CAsset> asset = CAssetManager::GetAsset(type, file->Path());
+			auto* thumbnail = CAssetThumbnailManager::GetThumbnail(asset);
+			if (thumbnail && !thumbnail->image.isNull())
+			{
+				item->setData(thumbnail->image.scaled(24 * dirViewSize, 24 * dirViewSize), Qt::DecorationRole);
+			}
+		}
+	}
 }
 
 void CContentBrowserWidget::UpdateViewSettings()
@@ -998,6 +1097,8 @@ void CContentBrowserWidget::UpdateViewSettings()
 		dirListView->setIconSize(QSize(24 * dirViewSize, 24 * dirViewSize));
 		//dirView->setSpacing(2);
 		dirListView->setViewMode(QListView::IconMode);
+
+		updateThumbnails();
 	}
 	else
 	{

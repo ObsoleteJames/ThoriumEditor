@@ -58,7 +58,7 @@ CEditorWindow* gEditorWindow = nullptr;
 
 SDK_REGISTER_WINDOW(CEditorWindow, "Editor Window", NULL, NULL);
 
-CEditorVar evEditorTheme("theme", "Apearance", FVariant("default"));
+CEditorVar evEditorTheme("theme", "Appearance", FVariant("default"));
 static TArray<FString> availableThemes;
 
 CEditorWindow::CEditorWindow() : CToolsWindow()
@@ -503,6 +503,9 @@ QWidget* CEditorWindow::MakeViewportWidget(CViewportWidget* viewport)
 
 			connect(actions[i], &QAction::triggered, this, [=](bool b) { if (b) viewport->SetViewMode((ECameraView)i); });
 		}
+
+		menuView->addSeparator();
+		menuView->addAction("");
 
 		connect(menuView, &QMenu::aboutToShow, this, [=]() {
 			int v = viewport->GetViewMode();

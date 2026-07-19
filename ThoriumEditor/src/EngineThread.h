@@ -20,6 +20,7 @@ signals:
 
 	void onSelectionChanged();
 	void onLevelChanged();
+	void onThumbnailGenerated();
 
 private:
 	bool bPaused = false;

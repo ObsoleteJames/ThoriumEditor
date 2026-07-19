@@ -363,13 +363,29 @@ void COutlinerWindow::Update()
 	}
 }
 
+void ExpandTreeItem(QTreeWidgetItem* item)
+{
+	auto* parent = item->parent();
+	while (parent)
+	{
+		parent->setExpanded(true);
+		parent = parent->parent();
+	}
+}
+
 void COutlinerWindow::selectionChanged()
 {
 	outlinerTree->blockSignals(true);
 	for (auto it : entityItems)
 	{
 		if (it.first)
-			it.second->setSelected(gEditorEngine->IsObjectSelected((CEntity*)it.second->data(0, Qt::UserRole).value<SizeType>()));
+		{
+			bool bSelected = gEditorEngine->IsObjectSelected((CEntity*)it.second->data(0, Qt::UserRole).value<SizeType>());
+			it.second->setSelected(bSelected);
+
+			if (bSelected)
+				ExpandTreeItem(it.second);
+		}
 	}
 	outlinerTree->blockSignals(false);
 }

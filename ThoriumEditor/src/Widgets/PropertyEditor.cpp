@@ -276,7 +276,7 @@ void CPropertyEditorWidget::AddProperty(IBasePropertyEditor* editor, CObject* ob
 		connect(editor, &IBasePropertyEditor::OnValueChanged, this, [=]() {
 			if (field->meta)
 			{
-				const FFunction* f = obj->GetClass()->GetFunction(field->meta->FlagValue("OnEditFunc"));
+				const FFunction* f = obj->GetClass()->GetFunction(field->meta->FlagValue("ValidateFunc"));
 				if (f)
 				{
 					gEditorEngine->PushEvent(EventExec_PreUpdate, [=]() {

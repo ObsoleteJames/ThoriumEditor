@@ -9,7 +9,7 @@ static TArray<CEditorVar*>& _EditorVariables()
 	return vars;
 }
 
-CEditorVar::CEditorVar(const FString& n, const FString& g, const FVariant& v) : name(n), group(g), value(v), defaultValue(v)
+CEditorVar::CEditorVar(const FString& n, const FString& g, const FVariant& v, bool bS) : name(n), group(g), value(v), defaultValue(v), bShowInSettings(bS)
 {
 	_EditorVariables().Add(this);
 }
@@ -18,6 +18,11 @@ CEditorVar::~CEditorVar()
 {
 	if (auto it = _EditorVariables().Find(this); it != _EditorVariables().end())
 		_EditorVariables().Erase(it);
+}
+
+void CEditorVar::Revert()
+{
+	value = defaultValue;
 }
 
 void CEditorVar::Save()

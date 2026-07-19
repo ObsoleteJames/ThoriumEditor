@@ -200,6 +200,8 @@ private Q_SLOTS:
 	void finishEditItem(const QModelIndex& index);
 	void cancelEditItem(const QModelIndex& index);
 
+	void updateThumbnails();
+
 private:
 	int dirViewSize = 3;
 	bool bAllowFileEdit = true;

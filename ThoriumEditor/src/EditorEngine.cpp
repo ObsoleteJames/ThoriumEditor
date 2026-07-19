@@ -12,6 +12,7 @@
 #include "EditorConfig.h"
 #include "System.h"
 #include "EditorPlugins.h"
+#include "AssetThumbnail.h"
 
 #include <Util/KeyValue.h>
 
@@ -26,8 +27,8 @@
 //CModule& GetModule_ThoriumEditor2();
 REGISTER_DEFAULT_MODULE(ThoriumEditorQt)
 
-CEditorVar evBoundBoxColor("BoundingBoxColor", "Viewport", FVariant(FColor::yellow));
-CEditorVar evBoundBoxActiveColor("BoundingBoxActiveColor", "Viewport", FVariant(FColor::orange));
+CEditorVar evBoundBoxColor("BoundingBoxColor", "Viewport", FVariant(FColor::yellow), true);
+CEditorVar evBoundBoxActiveColor("BoundingBoxActiveColor", "Viewport", FVariant(FColor::orange), true);
 
 void CEditorEngine::Init()
 {
@@ -126,6 +127,8 @@ int CEditorEngine::Run()
 
 		if (!gEditorWindow)
 			return 0;
+
+		CAssetThumbnailManager::Update();
 
 		Events::OnRender.Invoke();
 		UpdateEvents(EventExec_PreRender);

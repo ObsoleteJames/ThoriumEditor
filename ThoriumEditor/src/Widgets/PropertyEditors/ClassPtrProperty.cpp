@@ -52,7 +52,7 @@ public:
 CClassPtrProperty::CClassPtrProperty(void* v, const FProperty* p, QWidget* parent /*= nullptr*/) : IBasePropertyEditor(parent)
 {
 	property = p;
-	filter = CModuleManager::FindClass(property->typeName);
+	filter = CModuleManager::FindClass(property->templateType[0].typeName);
 	handler = property->GetHandler(v);
 
 	Init(property->name.c_str());

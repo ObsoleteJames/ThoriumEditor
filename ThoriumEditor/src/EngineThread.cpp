@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include "Misc/Timer.h"
+#include "AssetThumbnail.h"
 
 #include <chrono>
 #include <thread>
@@ -28,6 +29,9 @@ void CEngineThread::run()
 
 		emit onUpdate();
 		gEngine->Run();
+
+		if (CAssetThumbnailManager::NewThumbnailsAvailable())
+			emit onThumbnailGenerated();
 
 		dtTimer.Stop();
 		gEditorEngine->SetDeltaTime(dtTimer.GetSeconds());

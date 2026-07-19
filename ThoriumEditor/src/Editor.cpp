@@ -104,20 +104,21 @@ void ScanAddonsForCompilation(const FString& project)
 #endif
 				SSystem::Execute(cmd);
 				using namespace std::chrono_literals;
-				std::this_thread::sleep_for(100ms);
+				std::this_thread::sleep_for(500ms);
 				if (SSystem::Execute("cmake -A x64 -B \"" + addon.path + "/Intermediate/Build\" \"" + addon.path + "/Intermediate\""))
 				{
 					bAllCompiled = false;
 					CONSOLE_LogError("Editor", "Failed to generate build files for addon: '" + addon.name + "'");
-					continue;
+					break;
 				}
-				std::this_thread::sleep_for(100ms);
+				std::this_thread::sleep_for(500ms);
 				if (SSystem::Execute("cmake -DCMAKE_BUILD_TYPE=" CMAKE_CONFIG_NAME " --build \"" + addon.path + "/Intermediate/Build\""))
 				{
 					bAllCompiled = false;
 					CONSOLE_LogError("Editor", "Failed to compile addon: '" + addon.name + "'");
+					break;
 				}
-				std::this_thread::sleep_for(100ms);
+				std::this_thread::sleep_for(500ms);
 			}
 			
 			if (!bAllCompiled)

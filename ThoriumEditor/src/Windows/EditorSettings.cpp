@@ -1,9 +1,10 @@
 
 #include "EditorSettings.h"
 
-#include <QTreeWidget>
+#include <QListWidget>
 #include <QSplitter>
 #include <QBoxLayout>
+#include <QGridLayout>
 #include <QStyledItemDelegate>
 #include <QPainter>
 #include <QSpinBox>
@@ -12,10 +13,48 @@
 #include <QScrollArea>
 #include <QComboBox>
 #include <QPushButton>
+#include <QStackedWidget>
 #include "Widgets/CollapsableWidget.h"
 #include "EditorWindow.h"
 
+#include "QtColorWidgets/color_selector.hpp"
+
 SDK_REGISTER_WINDOW(CEditorSettingsWnd, "Editor Settings", "Edit", NULL);
+
+class CSettingsPage : public QWidget
+{
+public:
+	CSettingsPage(QWidget* parent) : QWidget(parent)
+	{
+		QVBoxLayout* layout = new QVBoxLayout(this);
+		layout->setContentsMargins(0, 0, 0, 0);
+
+		auto* scroll = new QScrollArea(this);
+		scroll->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+		scroll->setWidgetResizable(true);
+		scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		layout->addWidget(scroll);
+
+		page = new QWidget(this);
+		pageLayout = new QVBoxLayout(page);
+		page->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum));
+		scroll->setWidget(page);
+	}
+
+	inline void AddSetting(QWidget* item)
+	{
+		pageLayout->addWidget(item);
+
+		QFrame* f = new QFrame(this);
+		f->setFrameShape(QFrame::HLine);
+		f->setLineWidth(1);
+		pageLayout->addWidget(f);
+	}
+
+	QWidget* page;
+	QVBoxLayout* pageLayout;
+	QString title;
+};
 
 void CEditorSettingsWnd::SetupUi()
 {
@@ -26,24 +65,21 @@ void CEditorSettingsWnd::SetupUi()
 	QWidget* widget = new QWidget(this);
 	setCentralWidget(widget);
 
-	QHBoxLayout* layout = new QHBoxLayout(widget);
+	QGridLayout* layout = new QGridLayout(widget);
 	widget->setLayout(layout);
 
 	splitter = new QSplitter(Qt::Horizontal, this);
-	layout->addWidget(splitter);
+	layout->addWidget(splitter, 0, 0, 1, 4);
 
-	settingsIndex = new QTreeWidget(this);
-	settingsIndex->setHeaderHidden(true);
+	settingsIndex = new QListWidget(this);
 	splitter->addWidget(settingsIndex);
 
-	(new QTreeWidgetItem(settingsIndex))->setText(0, "General");
-	(new QTreeWidgetItem(settingsIndex))->setText(0, "Appearance");
-	(new QTreeWidgetItem(settingsIndex))->setText(0, "User");
+	//(new QListWidgetItem(settingsIndex))->setText("General");
+	//(new QListWidgetItem(settingsIndex))->setText("Appearance");
+	//(new QListWidgetItem(settingsIndex))->setText("User");
+	//(new QListWidgetItem(settingsIndex))->setText("Source Code");
 
-	settingsView = new QWidget(this);
-	settingsView->setLayout(new QHBoxLayout());
-	settingsView->layout()->setContentsMargins(0, 0, 0, 0);
-	settingsView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+	settingsView = new QStackedWidget(this);
 
 	QScrollArea* scrollArea = new QScrollArea(this);
 	scrollArea->setAlignment(Qt::AlignTop | Qt::AlignHCenter); 
@@ -56,22 +92,14 @@ void CEditorSettingsWnd::SetupUi()
 	splitter->setStretchFactor(1, 6);
 
 	{
-		general = new QWidget(this);
-		general->setLayout(new QVBoxLayout());
-		settingsView->layout()->addWidget(general);
-
-		general->layout()->addWidget(new QLabel("this is empty :))"));
+		general = GetPage("General");
+		general->AddSetting(new QLabel("Hello!"));
 	}
 	{
-		appearance = new QWidget(this);
-		appearance->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
-		auto* layout = new QVBoxLayout();
-		appearance->setLayout(layout);
-		settingsView->layout()->addWidget(appearance);
-		appearance->hide();
+		appearance = GetPage("Appearance");
 
 		QHBoxLayout* themeLayout = new QHBoxLayout();
-		layout->addLayout(themeLayout);
+		appearance->pageLayout->addLayout(themeLayout);
 		
 		CCollapsableWidget* themeWidget = new CCollapsableWidget("Theme", nullptr, this);
 		themeWidget->SetHeaderType(CCollapsableWidget::TREE_HEADER);
@@ -103,27 +131,59 @@ void CEditorSettingsWnd::SetupUi()
 		});
 	}
 
-	connect(settingsIndex, &QTreeWidget::itemSelectionChanged, this, [=]() {
-		SwitchPage(settingsIndex->currentIndex().row());
-	});
+	auto& vars = CEditorVar::GetVariables();
+	for (auto& v : vars)
+	{
+		if (!v->ShowInSettings())
+			continue;
 
+		auto* page = GetPage(v->GetGroup().c_str());
+
+		QWidget* editor = nullptr;
+		switch (v->GetValue().Type())
+		{
+		case FVariant::COLOR:
+		{
+			auto* edit = new color_widgets::ColorSelector(this);
+			FColor col = v->GetValue().AsColor();
+			edit->setColor(QColor(col.r * 255, col.g * 255, col.b * 255, col.a * 255));
+			edit->setMinimumWidth(240);
+			editor = edit;
+
+			connect(edit, &color_widgets::ColorSelector::colorSelected, this, [=]() { 
+				auto c = edit->color();
+				v->SetValue(FVariant(FColor(c.redF(), c.greenF(), c.blueF(), c.alphaF()))); 
+			});
+		}
+			break;
+		}
+
+		QWidget* setting = new QWidget(this);
+		QHBoxLayout* l = new QHBoxLayout(setting);
+		l->setContentsMargins(0, 0, 0, 0);
+		l->addWidget(new QLabel(v->GetName().c_str()));
+		l->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding));
+		l->addWidget(editor);
+
+		QPushButton* btn = new QPushButton(QIcon(":/icons/field_revert.svg"), "", this);
+		btn->setToolTip("Revert to default value");
+		btn->setProperty("type", QVariant("clear"));
+		QSizePolicy sp = btn->sizePolicy(); sp.setRetainSizeWhenHidden(true);
+		btn->setSizePolicy(sp);
+		btn->setMaximumSize(20, 20);
+		l->addWidget(btn);
+
+		connect(btn, &QPushButton::clicked, this, [=]() { v->Revert(); });
+		page->AddSetting(setting);
+	}
+
+	connect(settingsIndex, &QListWidget::currentRowChanged, settingsView, &QStackedWidget::setCurrentIndex);
 	RestoreState();
 }
 
 void CEditorSettingsWnd::SwitchPage(int index)
 {
-	if (index == curPage)
-		return;
-
-	QWidget* pages[] = {
-		general,
-		appearance
-	};
-
-	pages[curPage]->hide();
-	curPage = index;
-
-	pages[curPage]->show();
+	settingsView->setCurrentIndex(index);
 }
 
 void CEditorSettingsWnd::UserSaveState(QSettings& out)
@@ -134,4 +194,33 @@ void CEditorSettingsWnd::UserSaveState(QSettings& out)
 void CEditorSettingsWnd::UserRestoreState(QSettings& in)
 {
 	splitter->restoreState(in.value("splitter").toByteArray());
+}
+
+void CEditorSettingsWnd::AddPage(QWidget* page, const QString& title)
+{
+	settingsView->addWidget(page);
+	settingsIndex->addItem(title);
+
+	//pages.Add(page);
+}
+
+CSettingsPage* CEditorSettingsWnd::GetPage(const QString& title, bool bCreateNew)
+{
+	for (auto* p : pages)
+		if (p->title == title)
+			return p;
+
+	if (bCreateNew)
+	{
+		auto* p = new CSettingsPage(this);
+		p->title = title;
+		pages.Add(p);
+
+		settingsView->addWidget(p);
+		settingsIndex->addItem(title);
+
+		return p;
+	}
+
+	return nullptr;
 }
